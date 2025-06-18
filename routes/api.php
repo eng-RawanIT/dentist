@@ -36,6 +36,7 @@ Route::controller(AuthController::class)->group(function () {
 Route::controller(PatientController::class)->middleware('auth:sanctum')->group(function () {
     Route::post('/information', 'storeInformation');
     Route::post('/medication-uploadImage', 'uploadMedicationImage');
+    Route::post('/diseases', 'storeDiseases');
 });
 
 Route::controller(RadiologyController::class)->middleware('auth:sanctum')->group(function () {

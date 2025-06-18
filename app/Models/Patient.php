@@ -31,4 +31,9 @@ class Patient extends Model
     {
         return $this->hasMany(RadiologyImage::class);
     }
+
+    public function diseases()
+    {
+        return $this->belongsToMany(Disease::class , 'patient_disease_pivot');
+    }
 }

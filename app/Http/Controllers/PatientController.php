@@ -57,4 +57,21 @@ class PatientController extends Controller
         ]);
     }
 
+    public function storeDiseases(Request $request)
+    {
+        $request->validate([
+            'disease_id' => 'required|array',
+            'disease_id.*' => 'exists:diseases,id',
+        ]);
+
+        $patient = Patient::where('user_id', Auth::id())->firstOrFail();
+
+        $patient->diseases()->sync($request->disease_id); //attach
+
+        return response()->json([
+            'message' => 'Diseases saved successfully',
+        ]);
+    }
+
+
 }
