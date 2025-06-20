@@ -13,7 +13,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('phone_number')->unique()->nullable();
-            $table->string('national_number')->unique();
+            $table->string('national_number')->unique()->nullable();
             $table->string('password');
             $table->foreignId('role_id')
                 ->constrained('roles')

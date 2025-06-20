@@ -24,7 +24,7 @@ class StoreUserRequest extends FormRequest
         return [
             'name' => 'required|string',
             'phone_number' => 'nullable|numeric|digits:9|unique:users,phone_number',
-            'national_number' => 'required|numeric|digits:11|unique:users,national_number',
+            'national_number' => 'required_unless:role_id,2|numeric|digits:11|unique:users,national_number',
             'password' => 'required|string|confirmed|min:8|max:12',
             'role_id' => 'required|string|exists:roles,id', // example: 'patient:2'
         ];

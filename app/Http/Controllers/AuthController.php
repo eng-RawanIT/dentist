@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LoginRequest;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\User;
 use App\Services\OtpService;
@@ -47,19 +48,22 @@ class AuthController extends Controller
     }
 
 
-    public function login(Request $request)
+    public function login(LoginRequest  $request)
     {
-        $request->validate([
-            'national_number' => 'required|numeric|digits:11|exists:users,national_number',
-            'password' => 'required|string',
-        ]);
+        $validated = $request->validated();
 
-        $user = User::where('national_number', $request->national_number)->first();
+        if (isset($validated['national_number'])) {
+            $user = User::where('national_number', $validated['national_number'])->first();
+        } else {
+            $user = User::where('phone_number', $validated['phone_number'])->first();
+        }
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        // Check credentials
+        if (!$user || !Hash::check($validated['password'], $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        // Generate token
         $token = $user->createToken('authToken')->plainTextToken;
 
         return response()->json([
@@ -122,7 +126,6 @@ class AuthController extends Controller
             'otp' => 'required|numeric|digits:4',
             'name' => 'required|string',
             'phone_number' => 'required|numeric|unique:users,phone_number',
-            'national_number' => 'required|numeric|digits:11|unique:users,national_number',
             'password' => 'required|string|min:8|max:12',
         ]);
 
@@ -135,7 +138,6 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $request->name,
             'phone_number' => $request->phone_number,
-            'national_number' => $request->national_number,
             'password' => Hash::make($request->password),
             'role_id' => 2
         ]);
