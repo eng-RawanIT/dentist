@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class AuthController extends Controller
 {
@@ -74,8 +75,11 @@ class AuthController extends Controller
 
         // Generate token
         $token = $user->createToken('authToken')->plainTextToken;
+        $role = DB::table('roles')
+            ->where('id', $user->role_id)->first();
 
         return response()->json([
+            'role_name' =>$role->name,
             'user' => $user,
             'token' => $token,
         ]);
