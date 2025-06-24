@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use MongoDB\Driver\Session;
 
 class Patient extends Model
 {
@@ -36,4 +37,15 @@ class Patient extends Model
     {
         return $this->belongsToMany(Disease::class , 'patient_disease_pivot');
     }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
+    public function patientRequests()
+    {
+        return $this->hasMany(PatientRequest::class);
+    }
+
 }

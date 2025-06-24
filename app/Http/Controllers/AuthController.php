@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateProfileRequest;
+use App\Models\Student;
 use App\Models\User;
 use App\Services\OtpService;
 use App\Services\SMSService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -42,6 +45,12 @@ class AuthController extends Controller
                 'password' => Hash::make($validated['password']),
                 'role_id' => $validated['role_id'],
             ]);
+            if($validated['role_id']== 1){
+                Student::create([
+                  'user_id' => $user->id,
+                  'year' => $validated['year']
+                ]);
+            }
 
             return response()->json(['message' => 'User registered successfully'], 201);
         }
@@ -167,4 +176,62 @@ class AuthController extends Controller
             return response()->json(['message' => 'Password reset successfully'], 201);
         }
     }
+
+    /*public function updateProfile(UpdateProfileRequest $request)
+    {
+        $user = Auth::user();
+
+        // 1. Update User table
+        $user->fill($request->only(['name', 'phone', 'national_number']));
+
+        if ($request->filled('password')) {
+            $otp = OtpService::generateOtp();
+            $user->update([
+                'otp' => $otp,
+                'otp_expires_at' => Carbon::now()->addMinutes(5),
+            ]);
+            //$smsService = new SMSService();
+            //$smsService->sendSMS($user->phone_number, $otp);
+            $user->password = Hash::make($request->password);
+            return response()->json(['otp' => $otp]);
+        }
+
+        if($request->filled('phone_number')){
+            $otp = OtpService::generateOtp();
+            $user->update([
+                'otp' => $otp,
+                'otp_expires_at' => Carbon::now()->addMinutes(5),
+            ]);
+            //$smsService = new SMSService();
+            //$smsService->sendSMS($user->phone_number, $otp);
+            $user->password = Hash::make($request->password);
+            return response()->json(['otp' => $otp]);
+        }
+
+        $user->save();
+
+        // 2. Update Patient-specific data
+        if ($user->role_id = 2 && $user->patient) {
+            $patient = $user->patient;
+            $patient->fill($request->only(['birth_date', 'weight', 'height']));
+            $patient->save();
+
+            // 3. Sync Diseases (many-to-many)
+            if ($request->has('disease_ids')) {
+                $patient->diseases()->sync($request->disease_ids);
+            }
+
+            // 4. Update Medications
+            if ($request->has('medications')) {
+                $patient->medications()->delete(); // Clear existing
+                foreach ($request->medications as $med) {
+                    $patient->medications()->create([
+                        'image_url' => $med['image_url'],
+                    ]);
+                }
+            }
+        }
+
+        return response()->json(['message' => 'Profile updated successfully.']);
+    }*/
 }

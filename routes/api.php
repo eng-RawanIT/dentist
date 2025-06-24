@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\RadiologyController;
@@ -31,14 +32,28 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('/patientVerifyOtp', 'patientVerifyOtp');
     Route::post('/resetPassword', 'resetPassword');
     Route::post('/resend-otp', 'resendOtp');
+    Route::post('/editProfile', 'updateProfile')->middleware('auth:sanctum');
 });
 
 Route::controller(PatientController::class)->middleware('auth:sanctum')->group(function () {
     Route::post('/information', 'storeInformation');
     Route::post('/medication-uploadImage', 'uploadMedicationImage');
     Route::post('/diseases', 'storeDiseases');
+    Route::get('/oral-medicine-dentist', 'oralMedicineDentist');
+    Route::get('/requestStatus','requestStatus');
 });
 
 Route::controller(RadiologyController::class)->middleware('auth:sanctum')->group(function () {
     Route::post('/radilogy-uploadImage', 'uploadRadiologyImage');
+});
+
+Route::controller(ArchiveController::class)->middleware('auth:sanctum')->group(function () {
+    Route::get('/viewArchive', 'viewArchive');
+    Route::post('/viewTreatment','viewTreatment');
+});
+
+Route::controller(AdminController::class)->middleware('auth:sanctum')->group(function () {
+    Route::get('/weeklySummary', 'weeklySummary');
+    Route::get('/patientRequest', 'patientRequest');
+    Route::get('/allRequests','allPatientRequest');
 });

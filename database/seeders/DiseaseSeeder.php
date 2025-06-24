@@ -14,8 +14,8 @@ class DiseaseSeeder extends Seeder
     public function run(): void
     {
         Disease::create(['name' => 'داء السكري']);
-        Disease::create(['name' => 'امراض القلب']);
-        Disease::create(['name' => 'ضغط الدم']);
+        Disease::create(['name' => 'امراض القلب وضغط الدم']);
+        Disease::create(['name' => 'التدخين']);
         Disease::create(['name' => 'الحمل']);
         Disease::create(['name' => 'امراض الغدد الصماء']);
         Disease::create(['name' => 'حساسية اتجاه اي مادة طبية']);

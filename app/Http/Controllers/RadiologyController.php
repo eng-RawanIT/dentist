@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Patient;
 use App\Models\RadiologyImage;
+use App\Models\PatientRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -27,6 +28,11 @@ class RadiologyController extends Controller
             'patient_id' => $patient->id,
             'image_url' => $path,
             'type' => $request->type,
+        ]);
+
+        PatientRequest::create([
+            'patient_id' => $patient->id,
+            'status' => 'under processing'
         ]);
 
         return response()->json([

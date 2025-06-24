@@ -12,7 +12,9 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             RoleSeeder::class,
-            DiseaseSeeder::class
+            UserSeeder::class,
+            DiseaseSeeder::class,
+            StageSeeder::class
         ]);
 
         // \App\Models\User::factory(10)->create();

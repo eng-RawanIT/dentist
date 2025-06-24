@@ -55,7 +55,7 @@ class SMSService
         return $response->getBody()->getContents();
 
         /*try{
-        $request = new Request('POST', $this->apiUrl, $headers, $body);
+        $request = new PatientRequest('POST', $this->apiUrl, $headers, $body);
         $res = $this->client->send($request); // not async
         return $res->getBody()->getContents();
 
