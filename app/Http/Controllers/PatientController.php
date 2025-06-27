@@ -32,12 +32,15 @@ class PatientController extends Controller
         // Convert birthdate to database format (Y-m-d)
         $validatedData['birthdate'] = \Carbon\Carbon::createFromFormat('d-m-Y', $validatedData['birthdate'])->format('Y-m-d');
 
-        $patient = Patient::where('user_id', Auth::id())->first();
-        if(!$patient)
-        {
-        Patient::create([
-                'user_id' => Auth::id(),
-            ] + $validatedData);
+        // Get or create patient
+        $patient = Patient::firstOrCreate(
+            ['user_id' => Auth::id()],
+            $validatedData
+        );
+
+        // 🔁 If patient existed, update their data
+        if (!$patient->wasRecentlyCreated) {
+            $patient->update($validatedData);
         }
 
         ////// diseases
