@@ -77,14 +77,41 @@ class PatientController extends Controller
     // view all oral medicine student dentists
     public function oralMedicineDentist()
     {
-        $schedules = PracticalSchedule::where('stage_id', 3)->get();
-        $students = $schedules->flatMap(function ($schedule) {
-            return $schedule->students;
-        })->unique('national_number');
+
+        $students = Student::whereHas('practicalSchedule', function ($query) {
+            $query->where('stage_id', 3);
+        })->with(['user', 'appointments.stage', 'appointments.session'])
+            ->get()
+            ->unique('national_number')
+            ->values();
+
+        $result = $students->map(function ($student) {
+            // Filter appointments for stage_id = 3
+            $stage = $student->appointments->filter(function ($appointment) {
+                return $appointment->stage_id == 3 && $appointment->session;
+            });
+            // Get sessions from filtered appointments and calculate average evaluation
+            $avgEvaluation = $stage->pluck('session')
+                ->pluck('evaluation_score')
+                ->avg();
+
+        /*$result = $students->map(function ($student) {
+            // Get all sessions from student's appointments
+            $sessions = $student->appointments->pluck('session')->filter();
+            $avgEvaluation = $sessions->avg('evaluation_score');*/
+
+            return [
+                'id' => $student->id,
+                'name' => $student->user->name,
+                'year' => $student->year,
+                'profile_image' => $student->profile_image_url,
+                'avg_evaluation' => round($avgEvaluation, 2),
+            ];
+        });
 
         return response()->json([
-            'status' => 'successfully',
-            'students'=> $students
+            'status' => 'success',
+            'students' => $result
         ]);
     }
 

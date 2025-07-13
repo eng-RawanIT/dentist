@@ -13,6 +13,6 @@ class PracticalSchedule extends Model
 
     public function students()
     {
-        return $this->belongsToMany(Student::class, 'student_schedule_pivot');
+        return $this->hasMany(Student::class, 'student_schedule_pivot');
     }
 }

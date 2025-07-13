@@ -12,6 +12,7 @@ class Student extends Model
     protected $fillable = [
         'user_id',
         'year',
+        'profile_image_url'
     ];
 
     public function user()
@@ -21,7 +22,7 @@ class Student extends Model
 
     public function practicalSchedule()
     {
-        return $this->hasMany(PracticalSchedule::class, 'student_schedule_pivot');
+        return $this->belongsToMany(PracticalSchedule::class, 'student_schedule_pivot');
     }
 
     public function Appointments(){
