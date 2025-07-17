@@ -19,15 +19,15 @@ class SMSService
     {
         $this->client = new Client();
         $this->apiKey = "51577f8a-18df-4c7e-a10c-acee03ee2a79";
-        $this->apiUrl ="http://192.168.137.84:8082/";
+        $this->apiUrl ="http://192.168.137.155:8082/";
     }
 
     public function sendSMS($phone, $otp)
     {
 
 
-        $headers = ['Authorization' => '51577f8a-18df-4c7e-a10c-acee03ee2a79',
-            'Content-Type' => 'application/json'];
+        /*$headers = ['Authorization' => '51577f8a-18df-4c7e-a10c-acee03ee2a79',
+            'Content-Type' => 'application/json'];*/
 
         //$body = '{ "to": "' . $phone . '", "message": "Your verification code is: ' . $otp . '" }';
         //$body = ['to' => $phone,'message' => 'Your verification code is: ' . $otp,];
@@ -35,22 +35,33 @@ class SMSService
         //return $body;
         //$body = '{"to": "+963985797431","message": "Testing message101"}';
 
-        $phone = trim($phone);
-        $message = trim('Your verification code is: ' . $otp);
-        $body = [
+        //$phone = trim($phone);
+        //$message = trim('Your verification code is: ' . $otp);
+        /*$body = [
             'to' => $phone,
             'message' => $message,
-        ];
+        ];*/
         //$jsonBody = json_encode($body);
         //return $jsonBody;
+        //'message' => "$count appointment(s) marked as unavailable for $date.",
+        //$body = '{"to": "+963991402099","message": "Testing message101"}';
 
-        $json = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        //$body = "to: $phone ,message: Your verification code is: $otp";
+        //$json = json_encode($body);
+
+
+        $bodyMessage = "Your verification code is: $otp";
+        $requestBody = [
+            'to' => $phone,
+            'message' => $bodyMessage,
+        ];
+
         $response = $this->client->request('POST', $this->apiUrl, [
             'headers' => [
                 'Authorization' => $this->apiKey,
                 'Content-Type' => 'application/json',
             ],
-            'body' => $json,
+            'json' => $requestBody,
         ]);
         return $response->getBody()->getContents();
 

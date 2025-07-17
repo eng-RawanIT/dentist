@@ -11,10 +11,16 @@ class RadiologyImage extends Model
 
     protected $table = 'radiology_images';
 
-    protected $fillable = ['patient_id', 'image_url', 'type'];
+    protected $fillable = ['request_id', 'patient_id', 'image_url', 'type'];
 
     public function patient()
     {
         return $this->belongsTo(Patient::class);
     }
+
+    public function request()
+    {
+        return $this->belongsTo(PatientRequest::class);
+    }
+
 }

@@ -50,8 +50,8 @@ class BasicTablesSeeder extends Seeder
         ]);
 
         DB::table('appointments')->insert([
-            ['patient_id' => 1, 'student_id' => 1, 'stage_id' => 3, 'date' => '2025-07-01', 'time' => '09:00:00'],
-            ['patient_id' => 2, 'student_id' => 2, 'stage_id' => 2, 'date' => '2025-07-02', 'time' => '10:00:00'],
+            ['request_id' => 1,'patient_id' => 1, 'student_id' => 1, 'stage_id' => 3, 'date' => '2025-07-01', 'time' => '09:00:00'],
+            ['request_id' => 2,'patient_id' => 2, 'student_id' => 2, 'stage_id' => 2, 'date' => '2025-07-02', 'time' => '10:00:00'],
         ]);
 
         DB::table('sessions')->insert([
@@ -65,8 +65,8 @@ class BasicTablesSeeder extends Seeder
         ]);
 
         DB::table('radiology_images')->insert([
-            ['patient_id' => 1, 'image_url' => 'xray1.png'],
-            ['patient_id' => 2, 'image_url' => 'xray2.png'],
+            ['request_id' => 1,'patient_id' => 1, 'image_url' => 'xray1.png'],
+            ['request_id' => 1,'patient_id' => 2, 'image_url' => 'xray2.png'],
         ]);
 
         DB::table('patient_medication')->insert([

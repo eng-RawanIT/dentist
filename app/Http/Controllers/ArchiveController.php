@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Patient;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -36,6 +37,7 @@ class ArchiveController extends Controller
                     'name' => $student->user->name,
                     'year' => $student->year,
                     'stage_name' => $stage->name,
+                    'profile_image' => $student->profile_image_url,
                     'stage_id' => $stage->id,
                     'average_evaluation' => $avgEvaluation ? round($avgEvaluation, 2) : null,
                 ];
@@ -48,8 +50,95 @@ class ArchiveController extends Controller
         ]);
     }
 
+    public function viewTreatment(Request $request)
+    {
+        $request->validate([
+            'student_id' => 'required|exists:students,id',
+            'stage_id' => 'required|exists:stages,id',
+        ]);
 
-    public function viewTreatment(Request $request){
+        $patient = Patient::where('user_id', Auth::id())->firstOrFail();
+
+        // Get the latest processed request for the stage
+        $treatmentRequest = $patient->patientRequests()
+            ->where('stage_id', $request->stage_id)
+            ->where('status', 'processed')
+            ->latest()
+            ->first();
+
+        if (!$treatmentRequest) {
+            return response()->json([
+                'status' => 'no_data',
+                'message' => 'No processed treatment request found for this stage.'
+            ]);
+        }
+
+        // Get appointments for this request, student, and stage
+        $appointments = Appointment::where('request_id', $treatmentRequest->id)
+            ->where('student_id', $request->student_id)
+            ->with('session.images')
+            ->orderBy('date')
+            ->get();
+
+        if ($appointments->isEmpty()) {
+            return response()->json([
+                'status' => 'no_data',
+                'message' => 'No appointments found for this student and stage under this request.'
+            ]);
+        }
+
+        // Get the first session
+        $firstSession = $appointments->pluck('session')->filter()->first();
+
+        // All sessions
+        $allSessions = $appointments->pluck('session')->filter();
+
+        // Radiology images from the parent request
+        $radiologyImages = $treatmentRequest->radiologyImages->map(function ($image) {
+            return [
+                'url' => asset('storage/' . $image->image_url),
+            ];
+        });
+
+        // Appointment list with status
+        $appointmentDetails = $appointments->map(function ($appointment) {
+            return [
+                'date' => $appointment->date,
+                'time' => Carbon::createFromFormat('H:i:s', $appointment->time)->format('g A'),
+                'isDone' => $appointment->session ? 'true' : 'false',
+            ];
+        });
+
+        // Before and after session images
+        $beforeImages = $allSessions->flatMap(function ($session) {
+            return $session->images->where('type', 'before-treatment')->map(function ($img) {
+                return [
+                    'url' => asset('storage/' . $img->image_url),
+                    'type' => 'before'
+                ];
+            });
+        })->values();
+
+       $afterImages = $allSessions->flatMap(function ($session) {
+            return $session->images->where('type', 'after-treatment')->map(function ($img) {
+                return [
+                    'url' => asset('storage/' . $img->image_url),
+                    'type' => 'after'
+                ];
+            });
+        })->values();
+
+        return response()->json([
+            'status' => 'success',
+            'session_description' => optional($firstSession)->description,
+            'appointment_dates' => $appointmentDetails,
+            'radiology_images' => $radiologyImages,
+            'before_images' => $beforeImages,
+            'after_images' => $afterImages,
+        ]);
+    }
+
+    /*public function viewTreatment(Request $request){
 
         $request->validate([
             'student_id' => 'required|exists:students,id',
@@ -101,5 +190,5 @@ class ArchiveController extends Controller
             'before_images' => $beforeImages,
             'after_images' => $afterImages,
         ]);
-    }
+    }*/
 }

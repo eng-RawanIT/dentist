@@ -20,12 +20,17 @@ class Student extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function practicalSchedule()
+   /* public function practicalSchedule()
     {
-        return $this->belongsToMany(PracticalSchedule::class, 'student_schedule_pivot');
-    }
+        return $this->belongsToMany(PracticalSchedule::class);
+    }*/
 
     public function Appointments(){
         return $this->hasMany(Appointment::class);
+    }
+
+    public function availableAppointments()
+    {
+        return $this->hasMany(AvailableAppointment::class);
     }
 }

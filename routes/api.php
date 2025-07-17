@@ -5,6 +5,7 @@ use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\RadiologyController;
+use App\Http\Controllers\StudentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::controller(AuthController::class)->group(function () {
+    Route::get('/sms', 'sms');
     Route::post('/addUser', 'AddUser');
     Route::post('/login', 'login');
     Route::post('/logout', 'logout')->middleware('auth:sanctum');
@@ -39,8 +41,15 @@ Route::controller(PatientController::class)->middleware('auth:sanctum')->group(f
     Route::post('/information', 'storeInformation');
     Route::get('/oral-medicine-dentist', 'oralMedicineDentist');
     Route::get('/requestStatus','requestStatus');
+    Route::post('/available-appointment', 'viewAvailableAppointments');
+    Route::post('/book-appointment', 'bookAvailableAppointment');
 });
 
+Route::controller(StudentController::class)->middleware('auth:sanctum')->group(function () {
+    Route::post('/add-appointment', 'addAvailableAppointment');
+    Route::post('/change-day-status', 'changeDayStatus');
+    Route::get('/appointments', 'viewMyAppointment');
+});
 Route::controller(RadiologyController::class)->middleware('auth:sanctum')->group(function () {
     Route::post('/radilogy-uploadImage', 'uploadRadiologyImage');
 });

@@ -12,4 +12,14 @@ class PatientRequest extends Model
     protected $fillable = ['patient_id', 'status'];
 
     protected $table = 'requests';
+
+    public function radiologyImages()
+    {
+        return $this->hasMany(RadiologyImage::class, 'request_id');
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class);
+    }
 }

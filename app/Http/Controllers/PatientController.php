@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appointment;
+use App\Models\AvailableAppointment;
 use App\Models\MedicationImage;
 use App\Models\Patient;
 use App\Models\PatientRequest;
@@ -9,6 +11,7 @@ use App\Models\PracticalSchedule;
 use App\Models\Stage;
 use App\Models\Student;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -166,6 +169,7 @@ class PatientController extends Controller
                         'id' => $student->id,
                         'name' => $student->user->name,
                         'year' => $student->year,
+                        'profile_image' => $student->profile_image_url,
                         'avg_evaluation' => $avg ? round($avg, 2) : null,
                     ];
                 });
@@ -179,6 +183,84 @@ class PatientController extends Controller
             ]);
         }
     }
+
+    public function viewAvailableAppointments(Request $request)
+    {
+        $request->validate([
+            'student_id' => 'required|exists:students,id',
+            'stage_id' => 'required|exists:stages,id',
+        ]);
+
+        $availableAppointments = AvailableAppointment::where('student_id', $request->student_id)
+            ->where('stage_id', $request->stage_id)
+            ->where('status', 'on') // only active
+            ->whereDate('date', '>=', now())
+            ->orderBy('date')
+            ->orderBy('time')
+            ->get();
+
+        // Group by date and format each group
+        $grouped = $availableAppointments
+            ->groupBy('date')
+            ->map(function ($items, $date) {
+                return [
+                    'date' => $date,
+                    'day' => Carbon::parse($date)->format('l'),
+                    'status' => 'on',
+                    'times' => $items->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'time' => $item->time,
+                        ];})->values(),
+                ];})->values();
+
+        return response()->json([
+            'status' => 'success',
+            'available_appointments' => $grouped
+        ]);
+    }
+
+    public function bookAvailableAppointment(Request $request)
+    {
+        $request->validate([
+            'available_id' => 'required|exists:available_appointments,id',
+        ]);
+
+        $patient = Patient::where('user_id', Auth::id())->firstOrFail();
+
+        // Get the available slot
+        $available = AvailableAppointment::where('id',$request->available_id)->first();
+
+        // Double check it's still available
+        if ($available->status !== 'on') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This appointment is no longer available.',
+            ], 409);
+        }
+
+        // Create the official appointment
+        $appointment = Appointment::create([
+            'patient_id' => $patient->id,
+            'student_id' => $available->student_id,
+            'stage_id'   => $available->stage_id,
+            'date'       => $available->date,
+            'time'       => $available->time,
+            'request_id' => $patient->patientRequests()
+                ->where('stage_id', $available->stage_id)
+                ->where('status', 'processed')
+                ->latest()->value('id'), // link to request if exists
+        ]);
+
+        // Delete the available slot
+        $available->delete();
+
+        return response()->json([
+            'status' => 'success'
+        ]);
+    }
+
+
 
     /*
     public function uploadMedicationImage(Request $request)

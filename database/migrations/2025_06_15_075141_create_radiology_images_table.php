@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('radiology_images', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('request_id')
+                ->constrained('requests')
+                ->onDelete('cascade');
             $table->foreignId('patient_id')
                 ->constrained('patients')
                 ->onDelete('cascade');

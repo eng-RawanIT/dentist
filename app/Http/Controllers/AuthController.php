@@ -20,6 +20,14 @@ use Spatie\Permission\Models\Role;
 class AuthController extends Controller
 {
 
+    public function sms(){
+        $otp = OtpService::generateOtp();
+        $phone = "+963991402099";
+        $smsService = new SMSService();
+        $r = $smsService->sendSMS($phone, $otp);
+        return $r;
+    }
+
     public function AddUser (StoreUserRequest $request)
     {
         $validated = $request->validated();
@@ -77,6 +85,16 @@ class AuthController extends Controller
         $token = $user->createToken('authToken')->plainTextToken;
         $role = DB::table('roles')
             ->where('id', $user->role_id)->first();
+
+        // if it student return complete information
+        if($user->role_id == 1){
+            $user->load('student');
+            return response()->json([
+                'role_name' =>$role->name,
+                'user' => $user,
+                'token' => $token,
+            ]);
+        }
 
         return response()->json([
             'role_name' =>$role->name,

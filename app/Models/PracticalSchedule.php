@@ -11,8 +11,8 @@ class PracticalSchedule extends Model
 
     protected $table = 'practical_schedules';
 
-    public function students()
+    /*public function students()
     {
-        return $this->hasMany(Student::class, 'student_schedule_pivot');
-    }
+        return $this->hasMany(Student::class);
+    }*/
 }

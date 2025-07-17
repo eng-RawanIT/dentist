@@ -11,4 +11,8 @@ class SessionImage extends Model
 
     protected $table = 'session_images';
 
+    public function session()
+    {
+        return $this->belongsTo(Session::class, 'session_id');
+    }
 }

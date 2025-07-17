@@ -24,15 +24,16 @@ class RadiologyController extends Controller
         $filename = 'patientId-' . $patient->id . '.' . $extension;
         $path = $image->storeAs('radiology', $filename, 'public');
 
+        $req = PatientRequest::create([
+            'patient_id' => $patient->id,
+            'status' => 'under processing'
+        ]);
+
         $radiologyImage = RadiologyImage::create([
+            'request_id' => $req->id,
             'patient_id' => $patient->id,
             'image_url' => $path,
             'type' => $request->type,
-        ]);
-
-        PatientRequest::create([
-            'patient_id' => $patient->id,
-            'status' => 'under processing'
         ]);
 
         return response()->json([

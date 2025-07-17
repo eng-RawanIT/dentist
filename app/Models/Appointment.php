@@ -10,6 +10,7 @@ class Appointment extends Model
     use HasFactory;
 
     protected $fillable = [
+        'request_id',
         'patient_id',
         'student_id',
         'stage_id',
@@ -40,6 +41,11 @@ class Appointment extends Model
     public function stage()
     {
         return $this->belongsTo(Stage::class);
+    }
+
+    public function request()
+    {
+        return $this->belongsTo(PatientRequest::class);
     }
 
 }
