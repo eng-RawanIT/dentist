@@ -22,4 +22,9 @@ class PatientRequest extends Model
     {
         return $this->hasMany(Appointment::class);
     }
+
+    public function patient()
+    {
+        return $this->hasOne(Patient::class);
+    }
 }

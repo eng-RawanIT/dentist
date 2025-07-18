@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appointment;
 use App\Models\AvailableAppointment;
 use App\Models\PracticalSchedule;
 use App\Models\Student;
@@ -65,6 +66,35 @@ class StudentController extends Controller
         ]);
     }
 
+    public function deleteAvailableAppointment(Request $request)
+    {
+        $request->validate([
+            'available_id' => 'required|exists:available_appointments,id',
+        ]);
+
+        $student = Student::where('user_id', Auth::id())->firstOrFail();
+
+        // Find the appointment and ensure it belongs to this student
+        $appointment = AvailableAppointment::where('id', $request->available_id)
+            ->where('student_id', $student->id)
+            ->first();
+
+        if (!$appointment) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Appointment not found or does not belong to you.'
+            ], 404);
+        }
+
+        $appointment->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Available appointment deleted successfully.'
+        ]);
+    }
+
+
     public function changeDayStatus(Request $request)
     {
         $request->validate([
@@ -76,14 +106,23 @@ class StudentController extends Controller
 
         $student = Student::where('user_id', Auth::id())->firstOrFail();
 
-        $count = AvailableAppointment::where('student_id', $student->id)
+        if ($request->status === 'off') {
+            // Delete all available appointments for this date
+            AvailableAppointment::where('student_id', $student->id)
+                ->where('date', $date)
+                ->delete();
+
+            return response()->json([
+                'status' => 'deleted success',
+            ]);
+        }
+
+        AvailableAppointment::where('student_id', $student->id)
             ->where('date', $date)
             ->update(['status' => $request->status]);
 
         return response()->json([
-            'status' => 'success',
-            //'message' => "$count appointment(s) marked as unavailable for $date.",
-            'appointments' => AvailableAppointment::all()
+            'status' => 'updated success',
         ]);
     }
 
@@ -126,6 +165,36 @@ class StudentController extends Controller
         return response()->json([
             'status' => 'success',
             'available_appointments' => $grouped
+        ]);
+    }
+
+    public function weeklySchedule()
+    {
+        $student = Student::where('user_id', Auth::id())->firstOrFail();
+
+        $appointments = Appointment::with(['patient.user', 'stage'])
+            ->where('student_id', $student->id)
+            ->whereDate('date', '>=', now()->startOfDay())
+            ->whereDoesntHave('session') // Not treated yet
+            ->orderBy('date')
+            ->orderBy('time')
+            ->get();
+
+        $result = $appointments->groupBy('date')->map(function ($dailyAppointments, $date) {
+            return [
+                'date' => $date,
+                'day' => Carbon::parse($date)->format('l'),
+                'appointments' => $dailyAppointments->map(function ($appointment) {
+                    return [
+                        'patient_name' => $appointment->patient->user->name,
+                        'time' => $appointment->time,
+                        'stage_name' => $appointment->stage->name,
+                    ];})->values()
+            ];})->values();
+
+        return response()->json([
+            'status' => 'success',
+            'weekly_appointments' => $result
         ]);
     }
 

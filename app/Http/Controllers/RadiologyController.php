@@ -26,6 +26,7 @@ class RadiologyController extends Controller
 
         $req = PatientRequest::create([
             'patient_id' => $patient->id,
+            'stage_id' => null,
             'status' => 'under processing'
         ]);
 

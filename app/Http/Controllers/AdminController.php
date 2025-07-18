@@ -4,66 +4,72 @@ namespace App\Http\Controllers;
 
 use App\Models\PatientRequest;
 use App\Models\PracticalSchedule;
+use App\Models\Stage;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
-    // احصائيات اسبوعية لكل ستاج بنحسب كم جلسة انعمله وشو المتوسط الحسابي للتقييمات
-    public function weeklySummary()
+    public function addPracticalSchesdule(Request $request)
     {
-        // 1. Define the custom week range (Sunday to Thursday)
-        $startOfWeek = now()->startOfWeek(Carbon::SUNDAY);
-        $endOfWeek = $startOfWeek->copy()->addDays(4);
+        $validated = $request->validate([
+            'days' => 'required|string|in:Sunday,Monday,Tuesday,Wednesday,Thursday',
+            'stage_id' => 'required|exists:stages,id',
+            'supervisor_id' => 'required|exists:users,id',
+            'location' => 'required|string',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i|after:start_time',
+            'year' => 'required|string|in:fourth-year,fifth-year'
+        ]);
 
-        // 2. Get distinct stage IDs from practical_schedules to avoid duplicates
-        $validStageIds = DB::table('practical_schedules')
-            ->distinct()
-            ->pluck('stage_id');
+        $duplicate = PracticalSchedule::where($validated)->exists();
 
-        // 3. Query the session statistics
-        $stats = DB::table('sessions')
-            ->join('appointments', 'sessions.appointment_id', '=', 'appointments.id')
-            ->join('stages', 'appointments.stage_id', '=', 'stages.id')
-            ->select([
-                'appointments.stage_id',
-                'stages.name as stage_name',
-                DB::raw('COUNT(sessions.id) as session_count'),
-                DB::raw('AVG(sessions.evaluation_score) as average_score')
-            ])
-            ->whereBetween('sessions.date', [$startOfWeek, $endOfWeek])
-            ->whereIn('appointments.stage_id', $validStageIds)
-            ->groupBy('appointments.stage_id', 'stages.name')
-            ->orderBy('stages.name')
-            ->get();
+        if ($duplicate) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This practical schedule already exists.'
+            ], 409);
+        }
 
-        // 4. Format the results
-        $formattedStats = $stats->map(function ($item) {
-            return [
-                'stage_id' => $item->stage_id,
-                'stage_name' => $item->stage_name,
-                'session_count' => (int) $item->session_count,
-                'average_score' => round((float) $item->average_score, 2)
-            ];
-        });
+        $schedule = PracticalSchedule::create($validated);
 
         return response()->json([
             'status' => 'success',
-            'data' => $formattedStats
+            'schedule' => $schedule
         ]);
     }
 
-    public function patientRequest()
+    public function viewYearSchedules(Request $request)
     {
-        $requests = PatientRequest::where('status','under processing')->paginate(5);;
+        $request->validate([
+            'year' => 'required|string|in:fourth-year,fifth-year',
+        ]);
+
+        $schedules = PracticalSchedule::where('year', $request->year)
+            ->orderby('days')
+            ->get()
+            ->groupBy('days')
+            ->map(function ($dayGroup) {
+                return $dayGroup->map(function ($schedule) {
+                    $stage = Stage::where('id',$schedule->stage_id)->first();
+                    $supervisor = User::where('id',$schedule->supervisor_id)->first();
+                    return [
+                        'id' => $schedule->id,
+                        'stage_name' => $stage->name,
+                        'supervisor_name' => $supervisor->name,
+                        'location' => $schedule->location,
+                        'start_time' => $schedule->start_time,
+                        'end_time' => $schedule->end_time,
+                    ];})->values();
+            });
+
         return response()->json([
             'status' => 'success',
-            'requests' => $requests
+            'year' => $request->year,
+            'schedules' => $schedules
         ]);
     }
 
-    public function allPatientRequest(){
-        return PatientRequest::paginate(10);
-    }
 }

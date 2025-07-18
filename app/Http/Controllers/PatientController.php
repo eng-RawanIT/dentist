@@ -98,11 +98,6 @@ class PatientController extends Controller
                 ->pluck('evaluation_score')
                 ->avg();
 
-        /*$result = $students->map(function ($student) {
-            // Get all sessions from student's appointments
-            $sessions = $student->appointments->pluck('session')->filter();
-            $avgEvaluation = $sessions->avg('evaluation_score');*/
-
             return [
                 'id' => $student->id,
                 'name' => $student->user->name,

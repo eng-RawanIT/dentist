@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdmissionController;
 use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PatientController;
@@ -47,8 +48,10 @@ Route::controller(PatientController::class)->middleware('auth:sanctum')->group(f
 
 Route::controller(StudentController::class)->middleware('auth:sanctum')->group(function () {
     Route::post('/add-appointment', 'addAvailableAppointment');
+    Route::post('/delete-appointment', 'deleteAvailableAppointment');
     Route::post('/change-day-status', 'changeDayStatus');
     Route::get('/appointments', 'viewMyAppointment');
+    Route::get('/weekly-schedule', 'weeklySchedule');
 });
 Route::controller(RadiologyController::class)->middleware('auth:sanctum')->group(function () {
     Route::post('/radilogy-uploadImage', 'uploadRadiologyImage');
@@ -59,8 +62,17 @@ Route::controller(ArchiveController::class)->middleware('auth:sanctum')->group(f
     Route::post('/viewTreatment','viewTreatment');
 });
 
+Route::controller(AdmissionController::class)->middleware('auth:sanctum')->group(function () {
+    Route::get('/weekly-summary', 'weeklySummary');
+    Route::get('/patient-request', 'patientRequest');
+    Route::get('/all-requests','allPatientRequest');
+    Route::get('/stage-dates','stageDates');
+    Route::post('/request-details','requestDetails');
+    Route::get('/all-stage','allStages');
+    Route::post('/assign-patient','sortPatient');
+});
+
 Route::controller(AdminController::class)->middleware('auth:sanctum')->group(function () {
-    Route::get('/weeklySummary', 'weeklySummary');
-    Route::get('/patientRequest', 'patientRequest');
-    Route::get('/allRequests','allPatientRequest');
+    Route::post('/add-schedule','addPracticalSchesdule');
+    Route::post('/view-year-schedules','viewYearSchedules');
 });

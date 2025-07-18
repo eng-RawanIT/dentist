@@ -11,6 +11,16 @@ class PracticalSchedule extends Model
 
     protected $table = 'practical_schedules';
 
+    protected $fillable = [
+        'days',
+        'stage_id',
+        'supervisor_id',
+        'location',
+        'start_time',
+        'end_time',
+        'year'
+    ];
+
     /*public function students()
     {
         return $this->hasMany(Student::class);
