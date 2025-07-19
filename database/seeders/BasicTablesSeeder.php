@@ -74,11 +74,6 @@ class BasicTablesSeeder extends Seeder
             ['patient_id' => 2, 'image_url' => 'med2.png'],
         ]);
 
-        DB::table('student_schedule_pivot')->insert([
-            ['student_id' => 1, 'practical_schedule_id' => 1],
-            ['student_id' => 1, 'practical_schedule_id' => 2],
-        ]);
-
 
 
     }
