@@ -17,19 +17,32 @@ class StudentController extends Controller
     {
         $request->validate([
             'date' => 'required|date|after_or_equal:today|date_format:d-m-Y',
-            'time' => 'required|date_format:H:i:s',
+            'time' => 'required|string',
         ]);
 
         $date = Carbon::createFromFormat('d-m-Y', $request->date)->format('Y-m-d');
         $dayOfWeek = Carbon::parse($request->date)->format('l'); // e.g., 'Monday'
+
+        try {// Parse time string like "11 AM" or "2:30 PM" to H:i:s
+            $parsedTime = Carbon::createFromFormat('g A', $request->time)->format('H:i:s');
+        } catch (\Exception $e) {
+            try {// Try with minutes (e.g. "2:30 PM")
+                $parsedTime = Carbon::createFromFormat('g:i A', $request->time)->format('H:i:s');
+            } catch (\Exception $e) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid time format. Please use formats like "11 AM" or "2:30 PM".'
+                ], 422);
+            }
+        }
 
         $student = Student::where('user_id', Auth::id())->firstOrFail();
 
         // Find matching practical schedule based on date/time only
         $matchingSchedule = PracticalSchedule::where('year',$student->year)
             ->where('days', $dayOfWeek)
-            ->where('start_time', '<=', $request->time)
-            ->where('end_time', '>=', $request->time)
+            ->where('start_time', '<=', $parsedTime)
+            ->where('end_time', '>=', $parsedTime)
             ->first();
 
         if (!$matchingSchedule) {
@@ -42,7 +55,7 @@ class StudentController extends Controller
         // Check for conflicting availability
         $conflict = AvailableAppointment::where('student_id', $student->id)
             ->where('date', $date)
-            ->where('time', $request->time)
+            ->where('time', $parsedTime)
             ->exists();
 
         if ($conflict) {
@@ -57,7 +70,7 @@ class StudentController extends Controller
             'student_id' => $student->id,
             'stage_id' => $matchingSchedule->stage_id,
             'date' => $date,
-            'time' => $request->time,
+            'time' => $parsedTime,
             'status' => 'on'
         ]);
 
@@ -153,7 +166,7 @@ class StudentController extends Controller
                         'times' => $dateGroup->map(function ($item) {
                             return [
                                 'id' => $item->id,
-                                'time' => $item->time,
+                                'time' => Carbon::createFromFormat('H:i:s', $item->time)->format('g:i A'),
                             ];})->values(),
                     ];})->values();
 
@@ -187,7 +200,7 @@ class StudentController extends Controller
                 'appointments' => $dailyAppointments->map(function ($appointment) {
                     return [
                         'patient_name' => $appointment->patient->user->name,
-                        'time' => $appointment->time,
+                        'time' => Carbon::createFromFormat('H:i:s', $appointment->time)->format('g:i A'),
                         'stage_name' => $appointment->stage->name,
                     ];})->values()
             ];})->values();

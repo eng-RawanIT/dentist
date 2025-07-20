@@ -80,10 +80,13 @@ class PatientController extends Controller
     // view all oral medicine student dentists
     public function oralMedicineDentist()
     {
+        $years = PracticalSchedule::where('stage_id', 3)
+            ->pluck('year')
+            ->unique()
+            ->toArray();
 
-        $students = Student::whereHas('practicalSchedule', function ($query) {
-            $query->where('stage_id', 3);
-        })->with(['user', 'appointments.stage', 'appointments.session'])
+        $students = Student::whereIn('year', $years)
+            ->with(['user', 'appointments.stage', 'appointments.session'])
             ->get()
             ->unique('national_number')
             ->values();
@@ -117,7 +120,7 @@ class PatientController extends Controller
     {
         $patient = Patient::where('user_id', Auth::id())->firstOrFail();
 
-        // Get the latest request for this patient
+        // Latest request
         $latestRequest = $patient->patientRequests()->latest()->first();
 
         // Case 1: No request yet
@@ -128,7 +131,7 @@ class PatientController extends Controller
             ]);
         }
 
-        // Case 2: Request under processing
+        // Case 2: Under processing
         if ($latestRequest->status === 'under processing') {
             return response()->json([
                 'id' => 2,
@@ -136,28 +139,26 @@ class PatientController extends Controller
             ]);
         }
 
-        // Case 3: Request is processed → find matching students
+        // Case 3: Processed
         if ($latestRequest->status === 'processed') {
             $stageId = $latestRequest->stage_id;
 
-            $scheduleIds = PracticalSchedule::where('stage_id', $stageId)->pluck('id');
+            // Get years that have this stage
+            $eligibleYears = PracticalSchedule::where('stage_id', $stageId)
+                ->pluck('year')
+                ->unique()
+                ->toArray();
 
-            $studentIds = DB::table('student_schedule_pivot')
-                ->whereIn('practical_schedule_id', $scheduleIds)
-                ->pluck('student_id');
-
-            $students = Student::with(['user:id,name']) // only load user's name
-            ->whereIn('id', $studentIds)
-                ->select('id', 'user_id', 'year') // only needed student columns
+            // Find students in those years
+            $students = Student::whereIn('year', $eligibleYears)
+                ->with(['user:id,name', 'appointments.session'])
+                ->select('id', 'user_id', 'year', 'profile_image_url')
                 ->get()
                 ->map(function ($student) {
-                    // Calculate average evaluation from all sessions
-                    $avg = $student->appointments()
-                        ->whereHas('session') // only appointments with sessions
-                        ->with('session')
-                        ->get()
-                        ->pluck('session.evaluation_score')
-                        ->filter() // remove nulls
+                    $avg = $student->appointments
+                        ->pluck('session')
+                        ->filter()
+                        ->pluck('evaluation_score')
                         ->avg();
 
                     return [
@@ -174,10 +175,11 @@ class PatientController extends Controller
                 'status' => 'success',
                 'stage_id' => $stageId,
                 'stage_name' => Stage::find($stageId)->name,
-            'students' => $students
+                'students' => $students
             ]);
         }
     }
+
 
     public function viewAvailableAppointments(Request $request)
     {
