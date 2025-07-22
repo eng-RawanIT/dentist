@@ -16,9 +16,6 @@ return new class extends Migration
             $table->foreignId('request_id')
                 ->constrained('requests')
                 ->onDelete('cascade');
-            $table->foreignId('patient_id')
-                ->constrained('patients')
-                ->onDelete('cascade');
             $table->string('image_url');
             $table->enum('type', ['x-ray','real-image']);
             $table->timestamps();

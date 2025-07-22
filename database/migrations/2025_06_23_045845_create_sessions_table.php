@@ -16,11 +16,13 @@ return new class extends Migration
             $table->foreignId('appointment_id')
                 ->constrained('appointments')
                 ->onDelete('cascade');
-            $table->date('date');
-            $table->text('supervisor_comments');
-            $table->double('evaluation_score');
+            $table->text('supervisor_comments')
+                ->nullable();
+            $table->double('evaluation_score')
+                ->nullable();
             $table->text('description');
             $table->foreignId('supervisor_id')
+                ->nullable()
                 ->constrained('users')
                 ->onDelete('cascade');
             $table->timestamps();

@@ -9,6 +9,15 @@ class Session extends Model
 {
     use HasFactory;
 
+    protected $fillable = [
+        'appointment_id',
+        'date',
+        'supervisor_comments',
+        'evaluation_score',
+        'description',
+        'supervisor_id',
+    ];
+
     public function images()
     {
         return $this->hasMany(SessionImage::class);

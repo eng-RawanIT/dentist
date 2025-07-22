@@ -65,8 +65,10 @@ class BasicTablesSeeder extends Seeder
         ]);
 
         DB::table('radiology_images')->insert([
-            ['request_id' => 1,'patient_id' => 1, 'image_url' => 'xray1.png'],
-            ['request_id' => 1,'patient_id' => 2, 'image_url' => 'xray2.png'],
+            ['request_id' => 1, 'image_url' => 'xray1.png', 'type' => 'x-ray'],
+            ['request_id' => 1, 'image_url' => 'xray2.png', 'type' => 'real-image'],
+            ['request_id' => 2, 'image_url' => 'xray1.png', 'type' => 'x-ray'],
+            ['request_id' => 2, 'image_url' => 'xray2.png', 'type' => 'real-image'],
         ]);
 
         DB::table('patient_medication')->insert([

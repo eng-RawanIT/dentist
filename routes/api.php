@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+//for both middleware role permission :  ->middleware(['auth:sanctum', 'role:patient,dentalStudent'])
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
@@ -38,7 +39,7 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('/editProfile', 'updateProfile')->middleware('auth:sanctum');
 });
 
-Route::controller(PatientController::class)->middleware('auth:sanctum')->group(function () {
+Route::controller(PatientController::class)->middleware(['auth:sanctum', 'role:patient'])->group(function () {
     Route::post('/information', 'storeInformation');
     Route::get('/oral-medicine-dentist', 'oralMedicineDentist');
     Route::get('/requestStatus','requestStatus');
@@ -46,14 +47,19 @@ Route::controller(PatientController::class)->middleware('auth:sanctum')->group(f
     Route::post('/book-appointment', 'bookAvailableAppointment');
 });
 
-Route::controller(StudentController::class)->middleware('auth:sanctum')->group(function () {
+Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:dentalStudent'])->group(function () {
     Route::post('/add-appointment', 'addAvailableAppointment');
     Route::post('/delete-appointment', 'deleteAvailableAppointment');
     Route::post('/change-day-status', 'changeDayStatus');
     Route::get('/appointments', 'viewMyAppointment');
     Route::get('/weekly-schedule', 'weeklySchedule');
+    Route::post('/radiology-images', 'viewRadiologyImages');
+    Route::post('/patient-info', 'viewPatientInfo');
+    Route::post('/session-information', 'sessionInformation');
+    Route::post('/add-appointment-to-patient', 'addAppointmentToPatient');
 });
-Route::controller(RadiologyController::class)->middleware('auth:sanctum')->group(function () {
+
+Route::controller(RadiologyController::class)->middleware(['auth:sanctum', 'role:radiologyManager'])->group(function () {
     Route::post('/radilogy-uploadImage', 'uploadRadiologyImage');
 });
 
@@ -62,7 +68,7 @@ Route::controller(ArchiveController::class)->middleware('auth:sanctum')->group(f
     Route::post('/viewTreatment','viewTreatment');
 });
 
-Route::controller(AdmissionController::class)->middleware('auth:sanctum')->group(function () {
+Route::controller(AdmissionController::class)->middleware(['auth:sanctum', 'role:AdmissionManager'])->group(function () {
     Route::get('/weekly-summary', 'weeklySummary');
     Route::get('/patient-request', 'patientRequest');
     Route::get('/all-requests','allPatientRequest');
@@ -72,7 +78,7 @@ Route::controller(AdmissionController::class)->middleware('auth:sanctum')->group
     Route::post('/assign-patient','sortPatient');
 });
 
-Route::controller(AdminController::class)->middleware('auth:sanctum')->group(function () {
+Route::controller(AdminController::class)->middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::post('/add-schedule','addPracticalSchesdule');
     Route::post('/view-year-schedules','viewYearSchedules');
 });

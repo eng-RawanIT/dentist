@@ -15,24 +15,23 @@ class RadiologyController extends Controller
         $request->validate([
             'image' => 'required|image|mimes:jpg,jpeg,png|max:8192',
             'type' => 'required|in:x-ray,real-image',
+            'patient_id' => 'required|exists:patients,id'
         ]);
-
-        $patient = Patient::where('user_id', Auth::id())->first();
 
         $image = $request->file('image');
         $extension = $image->getClientOriginalExtension(); //ex: jpg
-        $filename = 'patientId-' . $patient->id . '.' . $extension;
-        $path = $image->storeAs('radiology', $filename, 'public');
 
         $req = PatientRequest::create([
-            'patient_id' => $patient->id,
+            'patient_id' => $request->patient_id,
             'stage_id' => null,
             'status' => 'under processing'
         ]);
 
+        $filename = 'requestId-' . $req->id . '-patientId-' . $request->patient_id . '.' . $extension;
+        $path = $image->storeAs('radiology', $filename, 'public');
+
         $radiologyImage = RadiologyImage::create([
             'request_id' => $req->id,
-            'patient_id' => $patient->id,
             'image_url' => $path,
             'type' => $request->type,
         ]);

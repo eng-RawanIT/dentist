@@ -181,7 +181,7 @@ class PatientController extends Controller
     }
 
 
-    public function viewAvailableAppointments(Request $request)
+    public function viewAvailableAppointmentss(Request $request)
     {
         $request->validate([
             'student_id' => 'required|exists:students,id',
@@ -214,6 +214,60 @@ class PatientController extends Controller
         return response()->json([
             'status' => 'success',
             'available_appointments' => $grouped
+        ]);
+    }
+
+    public function viewAvailableAppointments(Request $request)
+    {
+        $request->validate([
+            'student_id' => 'required|exists:students,id',
+            'stage_id' => 'required|exists:stages,id',
+        ]);
+
+        // Get available appointments from database
+        $availableAppointments = AvailableAppointment::where('student_id', $request->student_id)
+            ->where('stage_id', $request->stage_id)
+            ->where('status', 'on')
+            ->whereDate('date', '>=', now())
+            ->orderBy('date')
+            ->orderBy('time')
+            ->get();
+
+        // Group by date
+        $groupedByDate = $availableAppointments->groupBy('date');
+
+        // Create a collection for all week days (Sunday to Thursday)
+        $weekDays = collect(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday']);
+
+        // Get dates for the next occurrence of each day
+        $nextWeekDays = $weekDays->mapWithKeys(function ($day) {
+            $date = Carbon::now()->next($day);
+            return [$day => $date->format('Y-m-d')];
+        });
+
+        // Build the response structure for all days
+        $response = $weekDays->map(function ($day) use ($groupedByDate, $nextWeekDays) {
+            $date = $nextWeekDays[$day];
+            $appointments = $groupedByDate->get($date, collect());
+
+            return [
+                'date' => $appointments->isNotEmpty() ? $date : null,
+                'day' => $day,
+                'status' => $appointments->isNotEmpty() ? 'on' : 'off',
+                'times' => $appointments->isEmpty()
+                    ? []
+                    : $appointments->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'time' => $item->time,
+                        ];
+                    })->values()->toArray()
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'available_appointments' => $response
         ]);
     }
 

@@ -11,7 +11,7 @@ class RadiologyImage extends Model
 
     protected $table = 'radiology_images';
 
-    protected $fillable = ['request_id', 'patient_id', 'image_url', 'type'];
+    protected $fillable = ['request_id', 'image_url', 'type'];
 
     public function patient()
     {

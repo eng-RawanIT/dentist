@@ -19,7 +19,7 @@ class SMSService
     {
         $this->client = new Client();
         $this->apiKey = "51577f8a-18df-4c7e-a10c-acee03ee2a79";
-        $this->apiUrl ="http://192.168.137.155:8082/";
+        $this->apiUrl ="http://192.168.1.100:8082/";
     }
 
     public function sendSMS($phone, $otp)
@@ -44,7 +44,7 @@ class SMSService
         //$jsonBody = json_encode($body);
         //return $jsonBody;
         //'message' => "$count appointment(s) marked as unavailable for $date.",
-        //$body = '{"to": "+963991402099","message": "Testing message101"}';
+        $body = '{"to": "+963998047973","message": "your verification code is: 4537"}';
 
         //$body = "to: $phone ,message: Your verification code is: $otp";
         //$json = json_encode($body);
@@ -61,7 +61,7 @@ class SMSService
                 'Authorization' => $this->apiKey,
                 'Content-Type' => 'application/json',
             ],
-            'json' => $requestBody,
+            'json' => $body,
         ]);
         return $response->getBody()->getContents();
 
