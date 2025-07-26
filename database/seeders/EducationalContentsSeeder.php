@@ -44,6 +44,8 @@ class EducationalContentsSeeder extends Seeder
                 'type' => 'pdf',
                 'file_path' => "educational_files/{$pdf}",
                 'published_at' => now()->subDays(10),
+                'stage_id'=> 3,
+                'appropriate_rating'=>3
             ]);
         }
 
@@ -57,6 +59,8 @@ class EducationalContentsSeeder extends Seeder
                 'type' => 'image',
                 'file_path' => "educational_files/{$image}",
                 'published_at' => now()->subDays(8),
+                'stage_id'=> 1,
+                'appropriate_rating'=>5
             ]);
         }
 
@@ -68,6 +72,8 @@ class EducationalContentsSeeder extends Seeder
             'type' => 'article',
             'text_content' => 'Tooth decay is caused by plaque buildup...',
             'published_at' => now()->subDays(6),
+            'stage_id'=> 1,
+            'appropriate_rating'=>4
         ]);
 
         foreach (['image1.jpg', 'image2.jpg', 'image3.jpg'] as $i => $img) {
@@ -84,9 +90,11 @@ class EducationalContentsSeeder extends Seeder
             'supervisor_id' => $supervisor->id,
             'title' => 'Dental Procedures Video',
             'description' => 'Watch a step-by-step procedure',
-            'type' => 'video',
+            'type' => 'link',
             'content_url' => 'https://www.youtube.com/watch?v=abcd1234',
             'published_at' => now()->subDays(2),
+            'stage_id'=> 4,
+            'appropriate_rating'=>5
         ]);
 
         // ✅ 5. Link
@@ -97,6 +105,8 @@ class EducationalContentsSeeder extends Seeder
             'type' => 'link',
             'content_url' => 'https://www.webmd.com/oral-health/default.htm',
             'published_at' => now()->subDay(),
+            'stage_id'=> 2,
+            'appropriate_rating'=>2
         ]);
 
         $this->command->info('✅ Educational contents seeded successfully!');

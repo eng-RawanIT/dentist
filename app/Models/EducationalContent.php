@@ -10,7 +10,6 @@ class EducationalContent extends Model
     use HasFactory;
 
     // Define constants for the enum values for better readability and validation
-    public const TYPE_VIDEO = 'video';
     public const TYPE_ARTICLE = 'article';
     public const TYPE_PDF = 'pdf';
     public const TYPE_LINK = 'link';
@@ -26,11 +25,16 @@ class EducationalContent extends Model
         'content_url',
         'file_path',
         'published_at',
+        'stage_id',
+        'appropriate_rating',
+
     ];
 
 
     protected $casts = [
         'published_at' => 'datetime',
+        'stage_id' => 'integer',
+        'appropriate_rating' => 'integer',
     ];
 
     // لا تستخدم $appends ولا getPublishedAtFormattedAttribute() بهذه الطريقة
@@ -52,5 +56,12 @@ class EducationalContent extends Model
     public function images()
     {
         return $this->hasMany(EducationalImage::class);
+    }
+
+
+    // Add relationship to Stage
+    public function stage()
+    {
+        return $this->belongsTo(Stage::class);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\EducationalContent;
 use App\Models\EducationalImage;
+use App\Models\Stage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -13,36 +14,55 @@ class SupervisorController extends Controller
 {
     public function storeEducationalContent(Request $request)
     {
+
         $request->validate([
-            'title' => 'required|string',
+            'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'type' => 'required|in:video,article,pdf,link,image',
+            'type' => 'required|in:article,pdf,link,image',
             'text_content' => 'nullable|string',
             'content_url' => 'nullable|url',
-            'file' => 'nullable|file',
-            'images.*' => 'nullable|image',
+            'file' => 'nullable|file|max:10240',
+            'images.*' => 'nullable|image|max:5120',
+            'stage_id' => 'required|integer|exists:stages,id',
+            'appropriate_rating' => 'required|integer|min:1|max:5',
         ]);
+
+        $user = Auth::user();
+
+        if (!$user || $user->supervisor) {
+            return response()->json(['message' => 'Unauthorized. Only supervisors can add educational content related to sessions.'], 403);
+        }
+
+
+        $stage = Stage::find($request->stage_id);
+        if (!$stage) {
+            return response()->json(['message' => 'Stage not found.'], 404);
+        }
+
 
         $contentData = [
             'supervisor_id' => Auth::id(),
+            'stage_id' => $request->stage_id,
             'title' => $request->title,
             'description' => $request->description,
             'type' => $request->type,
             'text_content' => $request->text_content,
             'content_url' => $request->content_url,
+            'appropriate_rating' => $request->appropriate_rating,
             'published_at' => now(),
         ];
 
-        // Handle file upload
         if ($request->hasFile('file')) {
+            if (!in_array($request->type, ['pdf', 'image'])) {
+                return response()->json(['message' => 'File upload is only allowed for PDF or Image content types.'], 400);
+            }
             $path = $request->file('file')->store('educational_files', 'public');
             $contentData['file_path'] = $path;
         }
-
         $content = EducationalContent::create($contentData);
 
-        // Save images if any
-        if ($request->hasFile('images')) {
+
+        if ($request->type === 'article' && $request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
                 $imgPath = $image->store('educational_images', 'public');
                 EducationalImage::create([
@@ -50,14 +70,23 @@ class SupervisorController extends Controller
                     'image_url' => $imgPath,
                 ]);
             }
+        } elseif ($request->hasFile('images') && $request->type !== 'article') {
+            return response()->json(['message' => 'Multiple images are only allowed for "article" type content. Use "file" for single image/pdf upload.'], 400);
         }
+        $content->load('images');
+        $content->load('stage');
 
-        return response()->json(['status' => 'success', 'content' => $content]);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Educational content created successfully.',
+            'content' => $content
+        ], 201);
+
     }
 
     public function myEducationalContents()
     {
-        $contents = EducationalContent::where('supervisor_id', Auth::id())->with('images')->get();
+        $contents = EducationalContent::where('supervisor_id', Auth::id())->with('images','stage')->get();
         return response()->json(['status' => 'success', 'contents' => $contents]);
     }
 

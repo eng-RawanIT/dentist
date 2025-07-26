@@ -16,11 +16,13 @@ return new class extends Migration
             $table->foreignId('supervisor_id')->constrained('users')->onDelete('cascade');
             $table->string('title');
             $table->text('description')->nullable();
-            $table->enum('type', ['video', 'article', 'pdf', 'link', 'image']);
+            $table->enum('type', [ 'article', 'pdf', 'link', 'image']);
             $table->longText('text_content')->nullable(); // For internal article text
             $table->string('content_url')->nullable(); // For external URLs
             $table->string('file_path')->nullable(); // For uploaded files
             $table->timestamp('published_at')->nullable();
+            $table->foreignId('stage_id')->constrained('stages')->onDelete('cascade');
+            $table->integer('appropriate_rating');
             $table->timestamps();
         });
     }

@@ -63,6 +63,7 @@ Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:d
     Route::get('/QR_code','getStudentQrCodeData');
     Route::post('/educational-contents','listContents');
     Route::post('/show-educational-contents','showContent');
+    Route::get('/show-educational-contents-bystage/{stageId}','showEducationalContentByStage');
 
 });
 

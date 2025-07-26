@@ -13,6 +13,7 @@ use App\Models\PracticalSchedule;
 use App\Models\RadiologyImage;
 use App\Models\Session;
 use App\Models\SessionImage;
+use App\Models\Stage;
 use App\Models\Student;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -388,59 +389,99 @@ class StudentController extends Controller
     public function showMyPortfolio()
     {
         $user = Auth::user();
-
         if (!$user || !$user->student) {
-            return response()->json(['message' => 'Authenticated user is not a student'], 403);
+            return response()->json(['message' => 'Authenticated user is not a student.'], 403);
         }
 
         $student = $user->student;
 
         $appointments = $student->appointments()
-            ->with(['session.images', 'patient.user'])
+            ->with(['stage', 'session', 'patient.user'])
             ->get();
 
-        $sessions = [];
-        $totalScore = 0;
-        $sessionCount = 0;
+        $stagesData = $this->prepareStagesData($appointments);
+
+        $overallGrade = $this->calculateStudentGrade($stagesData);
+
+        return response()->json([
+            'student_id' => $student->id,
+            'name' => $user->name,
+            'profile_image_url' => $student->profile_image_url,
+            'year' => $student->year,
+            'overall_grade' => $overallGrade,
+            'stages' => array_values($stagesData),
+        ]);
+    }
+    private function prepareStagesData($appointments)
+    {
+        $stages = [];
 
         foreach ($appointments as $appointment) {
-            if ($appointment->session) {
-                $session = $appointment->session;
+            if (!$appointment->session || !$appointment->stage || !$appointment->patient) {
+                continue;
+            }
 
-                if ($session->evaluation_score !== null) {
-                    $totalScore += $session->evaluation_score;
-                    $sessionCount++;
-                }
+            $stage = $appointment->stage;
+            $session = $appointment->session;
+            $patient = $appointment->patient;
 
-                $sessions[] = [
-                    'session_id' => $session->id,
-                    'session_date' => $appointment->date,
-                    'evaluation_score' => $session->evaluation_score,
-                    'description' => $session->description,
-                    'images' => $session->images->pluck('image_url'),
-                    'patient' => [
-                        'id' => $appointment->patient->id ?? null,
-                        'name' => $appointment->patient->user->name ?? 'N/A',
-                        'gender' => $appointment->patient->gender ?? null,
-                        'birthdate' => $appointment->patient->birthdate ?? null,
-                    ],
+            $stageId = $stage->id;
+            $patientId = $patient->id;
+
+
+            if (!isset($stages[$stageId])) {
+                $stages[$stageId] = [
+                    'stage_id' => $stage->id,
+                    'stage_name' => $stage->name,
+                    'total_score' => 0,
+                    'session_count' => 0,
+                    'patients' => [],
+                    'stage_average_evaluation' => null,
                 ];
+            }
+
+            if ($session->evaluation_score !== null) {
+                $stages[$stageId]['total_score'] += $session->evaluation_score;
+                $stages[$stageId]['session_count']++;
+            }
+
+            if (!isset($stages[$stageId]['patients'][$patientId])) {
+                $stages[$stageId]['patients'][$patientId] = [
+                    'patient_id' => $patient->id,
+                    'name' => $patient->user->name ?? 'username',
+                    'session_count' => 1,
+                ];
+            } else {
+                $stages[$stageId]['patients'][$patientId]['session_count']++;
             }
         }
 
-        $averageGrade = $sessionCount > 0 ? round($totalScore / $sessionCount, 2) : null;
+        foreach ($stages as &$stage) {
+            if ($stage['session_count'] > 0) {
+                $stage['stage_average_evaluation'] = round($stage['total_score'] / $stage['session_count'], 2);
+            }
+            $stage['patients'] = array_values($stage['patients']);
+            unset($stage['total_score'], $stage['session_count']);
+        }
 
-        $portfolio = [
-            'student_id' => $student->id,
-            'name' => $user->name,
-            'image' => $student->profile_image_url,
-            'year' => $student->year,
-            'grade' => $averageGrade,
-            'sessions' => $sessions,
-        ];
-
-        return response()->json($portfolio);
+        return $stages;
     }
+    //متوسط علامة الطالب تبع الستاجات
+    private function calculateStudentGrade(array $stagesData): ?float
+    {
+        $total = 0;
+        $count = 0;
+
+        foreach ($stagesData as $stage) {
+            if (isset($stage['stage_average_evaluation'])) {
+                $total += $stage['stage_average_evaluation'];
+                $count++;
+            }
+        }
+
+        return $count > 0 ? round($total / $count, 2) : null;
+    }
+
 
     public function getStudentStagesWithSessions()
     {
@@ -538,11 +579,31 @@ class StudentController extends Controller
             'id' => 'required|exists:educational_contents,id',
         ]);
 
-        $content = EducationalContent::with('images', 'supervisor')->findOrFail($request->id);
+        $content = EducationalContent::with('images')->findOrFail($request->id);
 
         return response()->json([
             'status' => 'success',
             'content' => $content,
+        ]);
+    }
+
+    public function showEducationalContentByStage(int $stageId)
+    {
+        $stage = Stage::find($stageId);
+
+        if (!$stage) {
+            return response()->json(['message' => 'Stage not found.'], 404);
+        }
+
+        $contents = EducationalContent::where('stage_id', $stageId)
+            ->with(['images', 'supervisor'])
+            ->get();
+
+        // 3. إرجاع الاستجابة
+        return response()->json([
+            'status' => 'success',
+            'stage_name' => $stage->name,
+            'contents' => $contents
         ]);
     }
 }
