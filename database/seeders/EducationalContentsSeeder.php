@@ -109,6 +109,6 @@ class EducationalContentsSeeder extends Seeder
             'appropriate_rating'=>2
         ]);
 
-        $this->command->info('✅ Educational contents seeded successfully!');
+//        $this->command->info('✅ Educational contents seeded successfully!');
     }
 }

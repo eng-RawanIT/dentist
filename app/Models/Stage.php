@@ -13,4 +13,9 @@ class Stage extends Model
     {
         return $this->hasMany(Appointment::class);
     }
+
+    public function educationalContents()
+    {
+        return $this->hasMany(EducationalContent::class);
+    }
 }

@@ -17,7 +17,9 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             DiseaseSeeder::class,
             StageSeeder::class,
-            BasicTablesSeeder::class
+            BasicTablesSeeder::class,
+            EducationalContentsSeeder::class,
+            ResourceSeeder::class,
         ]);
 
         // \App\Models\User::factory(10)->create();

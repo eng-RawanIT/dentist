@@ -6,8 +6,10 @@ use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\RadiologyController;
+use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SupervisorController;
+use App\Models\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -63,7 +65,7 @@ Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:d
     Route::get('/QR_code','getStudentQrCodeData');
     Route::post('/educational-contents','listContents');
     Route::post('/show-educational-contents','showContent');
-    Route::get('/show-educational-contents-bystage/{stageId}','showEducationalContentByStage');
+    Route::post('/show-educational-contents-bystage','showEducationalContentByStage');
 
 });
 
@@ -95,4 +97,17 @@ Route::controller(SupervisorController::class)->middleware(['auth:sanctum', 'rol
     Route::post('/store-educational-content','storeEducationalContent');
     Route::get('/my-educational-contents','myEducationalContents');
     Route::delete('/delete-educational-content/{id}','deleteContent');
+});
+
+Route::controller(ResourceController::class)->middleware(['auth:sanctum', 'role:dentalStudent'])->group(function () {
+    Route::post('/add-resource','addResource');
+    Route::get('/myResources','showMyResources');
+    Route::get('/myRequestedResources','showRequestedResources');
+    Route::get('/resourceDetails/{id}','showResourceDetails');
+    Route::post('/showResourcesByCategory','showResourcesByCategory');
+    Route::post('/bookResource','bookResource');
+    Route::post('/releaseResource','releaseResource');
+
+
+
 });

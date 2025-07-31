@@ -561,9 +561,8 @@ class StudentController extends Controller
 ///////////////////////////////////////////////////المحتوى التعليمي
     public function listContents(Request $request)
     {
-        $query = EducationalContent::query()->with('images')->latest();
+        $query = EducationalContent::query()->with(['images', 'supervisor','stage'])->latest();
 
-        // Filter by type if provided
         if ($request->has('type')) {
             $query->where('type', $request->type);
         }
@@ -579,31 +578,52 @@ class StudentController extends Controller
             'id' => 'required|exists:educational_contents,id',
         ]);
 
-        $content = EducationalContent::with('images')->findOrFail($request->id);
-
+        $content = EducationalContent::with(['images', 'supervisor'])->findOrFail($request->id);
         return response()->json([
             'status' => 'success',
             'content' => $content,
         ]);
     }
 
-    public function showEducationalContentByStage(int $stageId)
+    public function showEducationalContentByStage(Request $request)
     {
-        $stage = Stage::find($stageId);
+        $typeFilter = $request->get('type');
+        $stages = Stage::with([
+            'educationalContents' => function ($query) use ($typeFilter) {
+                $query->with(['images', 'supervisor']);
+                if ($typeFilter) {
+                    $query->where('type', $typeFilter);
+                }
+            }
+        ])->get();
+        $formattedStages = [];
 
-        if (!$stage) {
-            return response()->json(['message' => 'Stage not found.'], 404);
+        foreach ($stages as $stage) {
+            $formattedContents = [];
+            foreach ($stage->educationalContents as $content) {
+                $formattedContents[] = [
+                    'content_id' => $content->id,
+                    'title' => $content->title,
+                    'description' => $content->description,
+                    'type' => $content->type,
+                    'text_content' => $content->text_content,
+                    'content_url' => $content->content_url,
+                    'file_path' => $content->file_path,
+                    'appropriate_rating' => $content->appropriate_rating,
+                    'published_at' => $content->published_at,
+                    'supervisor_name' => $content->supervisor->name ?? 'N/A',
+                    'images' => $content->images->pluck('image_url')->toArray(),
+                ];
+            }
+            $formattedStages[] = [
+                'stage_id' => $stage->id,
+                'stage_name' => $stage->name,
+                'educational_contents' => $formattedContents,
+            ];
         }
-
-        $contents = EducationalContent::where('stage_id', $stageId)
-            ->with(['images', 'supervisor'])
-            ->get();
-
-        // 3. إرجاع الاستجابة
         return response()->json([
             'status' => 'success',
-            'stage_name' => $stage->name,
-            'contents' => $contents
+            'stages' => $formattedStages
         ]);
     }
 }
