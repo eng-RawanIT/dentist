@@ -7,6 +7,7 @@ use App\Models\Student;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ResourceController extends Controller
 {
@@ -159,48 +160,46 @@ class ResourceController extends Controller
             'resource_id' => 'required|exists:resources,id',
             'student_id' => 'required|exists:students,id',
         ]);
-        $resource = Resources::with('owner.user')->find($request->resource_id);
 
-        if (!$resource) {
-            return response()->json(['message' => 'Resource not found.'], 404);
-        }
-        if ($resource->status === 'booked') {
-            return response()->json(['message' => 'Resource is already booked.'], 400);
-        }
+        return DB::transaction(function () use ($request) {
+            $resource = Resources::where('id', $request->resource_id)->lockForUpdate()->first();
+            if (!$resource) {
+                return response()->json(['message' => 'Resource not found.'], 404);
+            }
+            if ($resource->status === 'booked') {
+                return response()->json(['message' => 'Resource is already booked.'], 400);
+            }
+            $student = Student::with('user')->find($request->student_id);
+            if (!$student) {
+                return response()->json(['message' => 'Student not found.'], 404);
+            }
+            if ($student->id === $resource->owner_student_id) {
+                return response()->json(['message' => 'You cannot book your own resource.'], 403);
+            }
+            $resource->update([
+                'booked_by_student_id' => $student->id,
+                'status' => 'booked',
+                'loan_start_date' => now(),
+            ]);
 
-        $student = Student::with('user')->find($request->student_id);
+            return response()->json([
+                'message' => 'Resource booked successfully.',
+                'resource_name' => $resource->resource_name,
+                'category' => $resource->category,
+                'loan_start_date' => Carbon::parse($resource->loan_start_date)->format('Y-m-d'),
+                'loan_end_date' => $resource->loan_end_date,
 
-        if (!$student) {
-            return response()->json(['message' => 'Student not found.'], 404);
-        }
+                'owner' => [
+                    'name' => $resource->owner->user->name ?? 'N/A',
+                    'phone' => $resource->owner->user->phone_number ?? 'N/A',
+                ],
 
-        if ($student->id === $resource->owner_student_id) {
-            return response()->json(['message' => 'You cannot book your own resource.'], 403);
-        }
-
-        $resource->update([
-            'booked_by_student_id' => $student->id,
-            'status' => 'booked',
-            'loan_start_date' => now(),
-        ]);
-
-        return response()->json([
-            'message' => 'Resource booked successfully.',
-            'resource_name' => $resource->resource_name,
-            'category' => $resource->category,
-            'loan_start_date' => $resource->loan_start_date ? Carbon::parse($resource->loan_start_date)->format('Y-m-d ') : null,
-            'loan_end_date' => $resource->loan_end_date,
-
-            'owner' => [
-                'name' => $resource->owner->user->name ?? 'N/A',
-                'phone' => $resource->owner->user->phone_number ?? 'N/A',
-            ],
-
-            'booked_by' => [
-                'name' => $student->user->name ?? 'N/A',
-                'phone' => $student->user->phone_number ?? 'N/A',
-            ]
-        ]);
+                'booked_by' => [
+                    'name' => $student->user->name ?? 'N/A',
+                    'phone' => $student->user->phone_number ?? 'N/A',
+                ]
+            ]);
+        });
     }
 
     //بغير حالة المورد من محجوز لمتاح

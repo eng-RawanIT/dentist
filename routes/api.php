@@ -66,7 +66,7 @@ Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:d
     Route::post('/educational-contents','listContents');
     Route::post('/show-educational-contents','showContent');
     Route::post('/show-educational-contents-bystage','showEducationalContentByStage');
-
+    Route::get('/portfolio/download','downloadPdf');
 });
 
 Route::controller(RadiologyController::class)->middleware(['auth:sanctum', 'role:radiologyManager'])->group(function () {

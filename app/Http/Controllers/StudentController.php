@@ -15,6 +15,7 @@ use App\Models\Session;
 use App\Models\SessionImage;
 use App\Models\Stage;
 use App\Models\Student;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -161,7 +162,6 @@ class StudentController extends Controller
             ->orderBy('time')
             ->get();
 
-        // Group by stage, then by date
         $grouped = $appointments
             ->groupBy('stage_id')
             ->map(function ($stageAppointments) {
@@ -411,6 +411,35 @@ class StudentController extends Controller
             'overall_grade' => $overallGrade,
             'stages' => array_values($stagesData),
         ]);
+    }
+    ///pdf
+    public function downloadPdf()
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->student) {
+            return response()->json(['message' => 'Authenticated user is not a student.'], 403);
+        }
+
+        $student = $user->student;
+
+        $appointments = $student->appointments()
+            ->with(['stage', 'session', 'patient.user'])
+            ->get();
+
+        $stagesData = $this->prepareStagesData($appointments);
+        $overallGrade = $this->calculateStudentGrade($stagesData);
+        $data = [
+            'student_id' => $student->id,
+            'name' => $user->name,
+            'profile_image_url' => $student->profile_image_url,
+            'year' => $student->year,
+            'overall_grade' => $overallGrade,
+            'stages' => array_values($stagesData),
+        ];
+        $pdf = Pdf::loadView('pdf.portfolio', $data);
+
+        return $pdf->download('portfolio_' . $user->name . '.pdf');
     }
     private function prepareStagesData($appointments)
     {
