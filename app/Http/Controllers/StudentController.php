@@ -587,6 +587,37 @@ class StudentController extends Controller
             'session_id' => $sessionId,
         ]);
     }
+
+    public function uploadProfileImage(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpg,jpeg,png|max:5120', // 5MB
+        ]);
+
+        $user = Auth::user();
+
+        if (!$user || !$user->student) {
+            return response()->json(['message' => 'Authenticated user is not a student.'], 403);
+        }
+
+        $student = $user->student;
+
+        // حفظ الصورة
+        $file = $request->file('image');
+        $filename = 'student_' . $student->id . '.' . $file->getClientOriginalExtension();
+        $path = $file->storeAs('student_profiles', $filename, 'public');
+
+        // تحديث مسار الصورة في جدول الطلاب
+        $student->profile_image_url = 'storage/' . $path;
+        $student->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Profile image updated successfully.',
+            'profile_image_url' => asset('storage/' . $path),
+        ]);
+    }
+
 ///////////////////////////////////////////////////المحتوى التعليمي
     public function listContents(Request $request)
     {
