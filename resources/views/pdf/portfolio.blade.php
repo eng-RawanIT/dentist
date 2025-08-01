@@ -90,7 +90,7 @@
 
 <div class="header">
     @if ($profile_image_url)
-        <img src="{{ public_path('storage/' . $profile_image_url) }}" alt="Student Image">
+        <img src="{{ public_path('storage/student_profiles/' . $profile_image_url) }}" alt="Student Image">
     @endif
     <h1>{{ $name }}'s Portfolio</h1>
     <p><strong>Year:</strong> {{ $year }}</p>

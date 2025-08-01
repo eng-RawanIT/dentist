@@ -591,7 +591,7 @@ class StudentController extends Controller
     public function uploadProfileImage(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpg,jpeg,png|max:5120', // 5MB
+            'image' => 'required|image|mimes:jpg,jpeg|max:5120', // 5MB
         ]);
 
         $user = Auth::user();
@@ -605,16 +605,16 @@ class StudentController extends Controller
         // حفظ الصورة
         $file = $request->file('image');
         $filename = 'student_' . $student->id . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs('student_profiles', $filename, 'public');
+        $file->storeAs('student_profiles', $filename, 'public');
 
-        // تحديث مسار الصورة في جدول الطلاب
-        $student->profile_image_url = 'storage/' . $path;
+        // نخزن فقط الاسم في قاعدة البيانات
+        $student->profile_image_url = $filename;
         $student->save();
 
         return response()->json([
             'status' => 'success',
             'message' => 'Profile image updated successfully.',
-            'profile_image_url' => asset('storage/' . $path),
+            'profile_image_url' => asset('storage/student_profiles/' . $filename), // هذا للعرض فقط
         ]);
     }
 
