@@ -28,10 +28,12 @@ class ResourceController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        $student = $user->student;
+
         $contentData = [
             'resource_name'=>$request->resource_name,
             'category'=>$request->category,
-            'owner_student_id'=>Auth::id(),
+            'owner_student_id'=>$student->id,
             'owner_name'=>$user->name,
             'loan_start_date'=>$request->loan_start_date,
             'loan_end_date'=>$request->loan_end_date,
@@ -65,8 +67,8 @@ class ResourceController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $resources = Resources::where('owner_student_id', $user->id)
-            ->get();
+        $resources = Resources::where('owner_student_id', $user->student->id)->get();
+
 
         return response()->json([
             'status' => 'success',
@@ -82,7 +84,7 @@ class ResourceController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $requests = Resources::where('booked_by_student_id', $user->id)
+        $requests = Resources::where('booked_by_student_id', $user->student->id)
             ->with(['owner'])
             ->get();
 
@@ -221,7 +223,7 @@ class ResourceController extends Controller
             return response()->json(['message' => 'Resource not found.'], 404);
         }
 
-        if ($resource->owner_student_id !== $user->id) {
+        if ($resource->owner_student_id !== $user->student->id)  {
             return response()->json(['message' => 'You are not the owner of this resource.'], 403);
         }
 
