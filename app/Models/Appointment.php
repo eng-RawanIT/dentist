@@ -13,7 +13,6 @@ class Appointment extends Model
         'request_id',
         'patient_id',
         'student_id',
-        'stage_id',
         'date',
         'time'
     ];

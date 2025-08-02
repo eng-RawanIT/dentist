@@ -21,6 +21,7 @@ return new class extends Migration
                 ->constrained('stages')
                 ->onDelete('cascade');
             $table->enum('status',['under processing','processed']);
+            $table->boolean('complete');
             $table->timestamps();
         });
     }

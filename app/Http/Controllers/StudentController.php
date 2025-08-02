@@ -8,6 +8,7 @@ use App\Models\AvailableAppointment;
 use App\Models\Disease;
 use App\Models\MedicationImage;
 use App\Models\Patient;
+use App\Models\PatientRequest;
 use App\Models\PracticalSchedule;
 use App\Models\RadiologyImage;
 use App\Models\Session;
@@ -73,7 +74,7 @@ class StudentController extends Controller
         }
 
         // Create the availability using the stage_id from the schedule
-        AvailableAppointment::create([
+        $added = AvailableAppointment::create([
             'student_id' => $student->id,
             'stage_id' => $matchingSchedule->stage_id,
             'date' => $date,
@@ -83,6 +84,7 @@ class StudentController extends Controller
 
         return response()->json([
             'status' => 'success',
+            'available_id' => $added->id
         ]);
     }
 
@@ -113,7 +115,6 @@ class StudentController extends Controller
             'message' => 'Available appointment deleted successfully.'
         ]);
     }
-
 
     public function changeDayStatus(Request $request)
     {
@@ -150,41 +151,45 @@ class StudentController extends Controller
     {
         $student = Student::where('user_id', Auth::id())->firstOrFail();
 
+        $today = Carbon::today();
+        $startOfWeek = Carbon::now()->startOfWeek(Carbon::FRIDAY);
+
+        $weekDays = [Carbon::SUNDAY, Carbon::MONDAY, Carbon::TUESDAY, Carbon::WEDNESDAY, Carbon::THURSDAY];
+
+        $weekDates = collect($weekDays)->mapWithKeys(function ($day, $i) use ($startOfWeek) {
+            $date = $startOfWeek->copy()->addDays($i + 2); // Sunday = +2 from Friday
+            return [
+                $date->toDateString() => [
+                    'date' => $date->format('d-m-Y'),
+                    'day' => $date->format('l'),
+                    'times' => [],
+                ]
+            ];
+        });
+
         $appointments = $student->availableAppointments()
-            //->where('status', 'on')
-            ->whereDate('date', '>=', now())
-            ->with('stage') // eager load stage info
-            ->orderBy('stage_id')
+            ->whereIn('date', $weekDates->keys())
             ->orderBy('date')
             ->orderBy('time')
             ->get();
 
-        // Group by stage, then by date
-        $grouped = $appointments
-            ->groupBy('stage_id')
-            ->map(function ($stageAppointments) {
-                $stageName = optional($stageAppointments->first()->stage)->name ?? 'Unknown Stage';
+        // Group appointments by date
+        foreach ($appointments as $appointment) {
+            $dateKey = Carbon::parse($appointment->date)->toDateString();
 
-                // Group by date inside this stage
-                $byDate = $stageAppointments->groupBy('date')->map(function ($dateGroup, $date) {
-                    return [
-                        'date' => $date,
-                        'day' => Carbon::parse($date)->format('l'),
-                        'times' => $dateGroup->map(function ($item) {
-                            return [
-                                'id' => $item->id,
-                                'time' => Carbon::createFromFormat('H:i:s', $item->time)->format('g:i A'),
-                            ];})->values(),
-                    ];})->values();
-
-                return [
-                    'stage_name' => $stageName,
-                    'days' => $byDate,
-                ];})->values();
+            if (Carbon::parse($dateKey)->greaterThanOrEqualTo($today)) {
+                $day = $weekDates->get($dateKey);
+                $day['times'][] = [
+                    'id' => $appointment->id,
+                    'time' => Carbon::createFromFormat('H:i:s', $appointment->time)->format('g:i A'),
+                ];
+                $weekDates->put($dateKey, $day);
+            }
+        }
 
         return response()->json([
             'status' => 'success',
-            'available_appointments' => $grouped
+            'appointments' => $weekDates->values()
         ]);
     }
 
@@ -219,7 +224,8 @@ class StudentController extends Controller
         ]);
     }
 
-    public function viewRadiologyImages (Request $request)
+    // view the previous information for all the sessions depend to this patient request
+    public function viewPreviousInfo (Request $request)
     {
         $request->validate([
             'appointment_id' => 'required|exists:appointments,id',
@@ -227,11 +233,29 @@ class StudentController extends Controller
 
         $appointment = Appointment::where('id',$request->appointment_id)->first();
 
+        $allAppointments = Appointment::where('request_id', $appointment->request_id)
+            ->with('session.images')
+            ->get();
+
         $x_ray = RadiologyImage::where('request_id',$appointment->request_id)
             ->where('type','x-ray')->first();
 
         $real_image = RadiologyImage::where('request_id',$appointment->request_id)
             ->where('type','real-image')->first();
+
+        // Collect before & after images across all sessions of the same request
+        $beforeImages = [];
+        $afterImages = [];
+        foreach ($allAppointments as $appt) {
+            if ($appt->session && $appt->session->images) {
+                foreach ($appt->session->images as $img) {
+                    if ($img->type === 'before-treatment')
+                        $beforeImages[] = $img->image_url;
+                    elseif ($img->type === 'after-treatment')
+                        $afterImages[] = $img->image_url;
+                }
+            }
+        }
 
         // Get previous appointment (before the current one) under same request
         $previousAppointment = Appointment::where('request_id', $appointment->request_id)
@@ -247,9 +271,11 @@ class StudentController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'x_ray' => $x_ray->image_url,
-            '$real_image' => $real_image->image_url,
             'previous_description' => $previousDescription,
+            'x_ray' => $x_ray->image_url,
+            'real_image' => $real_image->image_url,
+            'before_images' => $beforeImages,
+            'after_images' => $afterImages
         ]);
     }
 
@@ -271,113 +297,75 @@ class StudentController extends Controller
         ]);
     }
 
-    public function sessionInformation (sessionRequest $request)
+    public function addDescription (Request $request)
     {
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'appointment_id' => 'required|exists:appointments,id',
+            'description' => 'required|string',
+        ]);
 
-        // Check if session already exists for this appointment
-        if (Session::where('appointment_id', $validated['appointment_id'])->exists()) {
+        $appointment = Appointment::find($request->appointment_id);
+        $session = Session::find($request->appointment_id);
+
+        if($session && $session->supervisor_id != null)
             return response()->json([
                 'status' => 'error',
-                'message' => 'Session already exists for this appointment.'
+                'message' => 'Session already evaluated , you cant edit it.'
             ], 409);
+
+        elseif($session) {
+            $appointment->session->update(['description' => $request->description]);
+            return response()->json([
+                'status' => 'success',
+            ]);
         }
 
-        $session = Session::create($validated);
-
-
-        if (!empty($validated['images'])) {
-            foreach ($validated['images'] as $imageData) {
-                $type = $imageData['type'];
-                $image = $imageData['file'];
-
-                $extension = $image->getClientOriginalExtension(); //ex: jpg
-                $filename = 'session-' . $session->id . '-' . $type . '.' . $extension;
-                $path = $image->storeAs('sessionImages', $filename, 'public');
-
-                $session->images()->create([
-                    'image_url' => $path,
-                    'type' => $type,
-                ]);
-            }
-        }
+        Session::create($validated);
 
         return response()->json([
             'status' => 'success',
-            'session' => $session->only(['id', 'appointment_id', 'description']),
         ]);
     }
 
-    public function addAppointmentToPatient (Request $request)
+    public function addTreatmentImage (Request $request)
     {
         $request->validate([
             'appointment_id' => 'required|exists:appointments,id',
-            'date' => 'required|date|after_or_equal:today|date_format:d-m-Y',
-            'time' => 'required|string'
+            'image' => 'required|array',
+            'image.*' => 'required|image|mimes:jpg,jpeg,png|max:4096',
+            'type' => 'required|in:before-treatment,after-treatment'
         ]);
 
-        $date = Carbon::createFromFormat('d-m-Y', $request->date)->format('Y-m-d');
-        $dayOfWeek = Carbon::parse($request->date)->format('l'); // e.g., 'Monday'
+        $session = Session::find($request->appointment_id);
 
-        try {// Parse time string like "11 AM" or "2:30 PM" to H:i:s
-            $parsedTime = Carbon::createFromFormat('g A', $request->time)->format('H:i:s');
-        } catch (\Exception $e) {
-            try {// Try with minutes (e.g. "2:30 PM")
-                $parsedTime = Carbon::createFromFormat('g:i A', $request->time)->format('H:i:s');
-            } catch (\Exception $e) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Invalid time format. Please use formats like "11 AM" or "2:30 PM".'
-                ], 422);
-            }
-        }
-
-        $student = Student::where('user_id', Auth::id())->firstOrFail();
-        $parentAppointment = Appointment::find($request->appointment_id);
-
-        // Check that student's schedule matches stage, time, and day
-        $matchingSchedule = PracticalSchedule::where('year', $student->year)
-            ->where('stage_id', $parentAppointment->stage_id)
-            ->where('days', $dayOfWeek)
-            ->where('start_time', '<=', $parsedTime)
-            ->where('end_time', '>=', $parsedTime)
-            ->first();
-
-        if (!$matchingSchedule) {
+        if($session && $session->supervisor_id != null)
             return response()->json([
                 'status' => 'error',
-                'message' => 'You do not have a scheduled stage at this time.'
-            ], 400);
-        }
-
-        //check the appointment not existing befor
-        $alreadyExists = Appointment::where('student_id', $student->id)
-            ->where('date', $date)
-            ->where('time', $parsedTime)
-            ->exists();
-
-        if ($alreadyExists) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'You already have an appointment for the same date and time.'
+                'message' => 'Session already evaluated , you cant edit it.'
             ], 409);
-        }
 
+        elseif(!$session)
+            $session = Session::create([
+                'appointment_id' => $request->appointment_id,
+                'description' => 'null'
+            ]);
 
-        Appointment::create([
-            'request_id' => $parentAppointment->request_id,
-            'patient_id' => $parentAppointment->patient_id,
-            'student_id' => $student->id,
-            'stage_id' => $parentAppointment->stage_id,
-            'date' => $date,
-            'time' => $parsedTime,
-        ]);
+            if ($request->hasFile('image')) {
+                foreach ($request->file('image') as $image) {
+
+                    $extension = $image->getClientOriginalExtension(); //ex: jpg
+                    $filename = 'sessionId-' . $session->id . '-' . $request->type . '.' . $extension;
+                    $path = $image->storeAs('sessions', $filename, 'public');
+
+                    $session->images()->create([
+                        'image_url' => $path,
+                        'type' => $request->type,
+                    ]);
+                }
+            }
 
         return response()->json([
             'status' => 'success',
         ]);
-
     }
-
-
 }

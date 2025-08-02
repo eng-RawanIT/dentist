@@ -53,10 +53,10 @@ Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:d
     Route::post('/change-day-status', 'changeDayStatus');
     Route::get('/appointments', 'viewMyAppointment');
     Route::get('/weekly-schedule', 'weeklySchedule');
-    Route::post('/radiology-images', 'viewRadiologyImages');
+    Route::post('/previous-info', 'viewPreviousInfo');
     Route::post('/patient-info', 'viewPatientInfo');
-    Route::post('/session-information', 'sessionInformation');
-    Route::post('/add-appointment-to-patient', 'addAppointmentToPatient');
+    Route::post('/add-description', 'addDescription');
+    Route::post('/add-image', 'addTreatmentImage');
 });
 
 Route::controller(RadiologyController::class)->middleware(['auth:sanctum', 'role:radiologyManager'])->group(function () {

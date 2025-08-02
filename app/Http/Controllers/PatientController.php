@@ -8,6 +8,7 @@ use App\Models\MedicationImage;
 use App\Models\Patient;
 use App\Models\PatientRequest;
 use App\Models\PracticalSchedule;
+use App\Models\Session;
 use App\Models\Stage;
 use App\Models\Student;
 use App\Models\User;
@@ -80,24 +81,30 @@ class PatientController extends Controller
     // view all oral medicine student dentists
     public function oralMedicineDentist()
     {
-        $years = PracticalSchedule::where('stage_id', 3)
+        $stageId = 3;
+        $years = PracticalSchedule::where('stage_id', $stageId)
             ->pluck('year')
             ->unique()
             ->toArray();
 
+        $requiredCaseCount = Stage::find($stageId)->required_case_count;
         $students = Student::whereIn('year', $years)
-            ->with(['user', 'appointments.stage', 'appointments.session'])
-            ->get()
-            ->unique('national_number')
-            ->values();
+            ->with([
+                'user:id,name',
+                'appointments.request',
+                'appointments.session'
+            ])
+            ->get();
 
-        $result = $students->map(function ($student) {
-            // Filter appointments for stage_id = 3
-            $stage = $student->appointments->filter(function ($appointment) {
-                return $appointment->stage_id == 3 && $appointment->session;
-            });
-            // Get sessions from filtered appointments and calculate average evaluation
-            $avgEvaluation = $stage->pluck('session')
+        // Map each student to compute case count and avg evaluation
+        $filteredStudents = $students->map(function ($student) use ($stageId) {
+            // Count number of unique requests for this stage
+            $caseCount = $student->appointments->filter(function ($appointment) use ($stageId) {
+                return $appointment->request->stage_id == $stageId;
+            })->pluck('request_id')->unique()->count();
+
+            $avgEvaluation = $student->appointments
+                ->pluck('session')
                 ->pluck('evaluation_score')
                 ->avg();
 
@@ -106,116 +113,114 @@ class PatientController extends Controller
                 'name' => $student->user->name,
                 'year' => $student->year,
                 'profile_image' => $student->profile_image_url,
-                'avg_evaluation' => round($avgEvaluation, 2),
+                'case_count' => $caseCount,
+                'avg_evaluation' => $avgEvaluation ? round($avgEvaluation, 2) : null,
             ];
-        });
+        })
+            ->filter(function ($student) use ($requiredCaseCount) {
+                return $student['case_count'] <= $requiredCaseCount;
+            })
+            ->sortBy('case_count') // Sort by ascending
+            ->values();
 
         return response()->json([
             'status' => 'success',
-            'students' => $result
+            'students' => $filteredStudents
         ]);
     }
+
 
     public function requestStatus()
     {
         $patient = Patient::where('user_id', Auth::id())->firstOrFail();
 
-        // Latest request
+        // Get the latest patient request
         $latestRequest = $patient->patientRequests()->latest()->first();
 
         // Case 1: No request yet
-        if (!$latestRequest) {
+        if ($latestRequest->complete == 1) {
             return response()->json([
                 'id' => 1,
-                'status' => 'Please visit the radiology department first.'
+                'status' => 'Please visit the radiology department first.',
             ]);
         }
 
-        // Case 2: Under processing
-        if ($latestRequest->status === 'under processing') {
+        // Case 2: Request is under processing
+        if ($latestRequest->complete == 0 && $latestRequest->status === 'under processing') {
             return response()->json([
                 'id' => 2,
-                'status' => 'Your request is currently under processing.'
+                'status' => 'Your request is currently under processing.',
             ]);
         }
 
-        // Case 3: Processed
-        if ($latestRequest->status === 'processed') {
+        // Case 3: Request is processed — show eligible students
+        if ($latestRequest->complete == 0 && $latestRequest->status === 'processed') {
             $stageId = $latestRequest->stage_id;
 
-            // Get years that have this stage
+            // Get required case count for this stage
+            $stage = Stage::find($stageId);
+            $requiredCaseCount = $stage->required_case_count;
+
+            // Check if this request already has an appointment (اذا كان عم يسجل اول مرة فحيطلع ليستت الطلاب و اما المرات الجاية خلص الطالب صار ثابت)
+            $existingAppointment = $latestRequest->appointments->first();
+            if ($existingAppointment) {
+                return response()->json([
+                    'status' => 'This is not the first appointment , its the same student.',
+                    'stage_id' => $stageId,
+                    'student_id' => $existingAppointment->student_id,
+                ]);
+            }
+
             $eligibleYears = PracticalSchedule::where('stage_id', $stageId)
                 ->pluck('year')
                 ->unique()
                 ->toArray();
 
-            // Find students in those years
             $students = Student::whereIn('year', $eligibleYears)
-                ->with(['user:id,name', 'appointments.session'])
-                ->select('id', 'user_id', 'year', 'profile_image_url')
-                ->get()
-                ->map(function ($student) {
-                    $avg = $student->appointments
-                        ->pluck('session')
-                        ->filter()
-                        ->pluck('evaluation_score')
-                        ->avg();
+                ->with([
+                    'user:id,name',
+                    'appointments.request',
+                    'appointments.session'
+                ])
+                ->get();
 
-                    return [
-                        'id' => $student->id,
-                        'name' => $student->user->name,
-                        'year' => $student->year,
-                        'profile_image' => $student->profile_image_url,
-                        'avg_evaluation' => $avg ? round($avg, 2) : null,
-                    ];
-                });
+            // Map each student with case count and average evaluation
+            $filteredStudents = $students->map(function ($student) use ($stageId) {
+                // Count requests in this stage (through appointments)
+                $caseCount = $student->appointments->filter(function ($appointment) use ($stageId) {
+                    return $appointment->request->stage_id == $stageId;
+                })->unique('request.id')->count();
+
+                $avgEvaluation = $student->appointments
+                    ->pluck('session')
+                    ->pluck('evaluation_score')
+                    ->avg();
+
+                return [
+                    'id' => $student->id,
+                    'name' => $student->user->name,
+                    'year' => $student->year,
+                    'profile_image' => $student->profile_image_url,
+                    'case_count' => $caseCount,
+                    'avg_evaluation' => $avgEvaluation ? round($avgEvaluation, 2) : null,
+                ];
+            })
+                ->filter(function ($student) use ($requiredCaseCount) {
+                    return $student['case_count'] <= $requiredCaseCount;
+                })
+                ->sortBy('case_count') // Sort by ascending number
+                ->values();
 
             return response()->json([
                 'id' => 3,
                 'status' => 'success',
                 'stage_id' => $stageId,
-                'stage_name' => Stage::find($stageId)->name,
-                'students' => $students
+                'stage_name' => $stage->name,
+                'students' => $filteredStudents,
             ]);
         }
     }
 
-
-    public function viewAvailableAppointmentss(Request $request)
-    {
-        $request->validate([
-            'student_id' => 'required|exists:students,id',
-            'stage_id' => 'required|exists:stages,id',
-        ]);
-
-        $availableAppointments = AvailableAppointment::where('student_id', $request->student_id)
-            ->where('stage_id', $request->stage_id)
-            ->where('status', 'on') // only active
-            ->whereDate('date', '>=', now())
-            ->orderBy('date')
-            ->orderBy('time')
-            ->get();
-
-        // Group by date and format each group
-        $grouped = $availableAppointments
-            ->groupBy('date')
-            ->map(function ($items, $date) {
-                return [
-                    'date' => $date,
-                    'day' => Carbon::parse($date)->format('l'),
-                    'status' => 'on',
-                    'times' => $items->map(function ($item) {
-                        return [
-                            'id' => $item->id,
-                            'time' => $item->time,
-                        ];})->values(),
-                ];})->values();
-
-        return response()->json([
-            'status' => 'success',
-            'available_appointments' => $grouped
-        ]);
-    }
 
     public function viewAvailableAppointments(Request $request)
     {
@@ -271,6 +276,7 @@ class PatientController extends Controller
         ]);
     }
 
+
     public function bookAvailableAppointment(Request $request)
     {
         $request->validate([
@@ -294,7 +300,6 @@ class PatientController extends Controller
         $appointment = Appointment::create([
             'patient_id' => $patient->id,
             'student_id' => $available->student_id,
-            'stage_id'   => $available->stage_id,
             'date'       => $available->date,
             'time'       => $available->time,
             'request_id' => $patient->patientRequests()
@@ -311,47 +316,4 @@ class PatientController extends Controller
         ]);
     }
 
-
-
-    /*
-    public function uploadMedicationImage(Request $request)
-    {
-        $request->validate([
-            'image' => 'required|image|mimes:jpg,jpeg,png|max:4096',
-        ]);
-
-        $patient = Patient::where('user_id', Auth::id())->first();
-
-        $image = $request->file('image');
-        $extension = $image->getClientOriginalExtension(); //ex: jpg
-        $filename = 'patientId-' . $patient->id . '.' . $extension;
-        $path = $image->storeAs('medications', $filename, 'public');
-
-        $medicationImage = MedicationImage::create([
-            'patient_id' => $patient->id,
-            'image_url' => $path,
-        ]);
-
-        return response()->json([
-            'message' => 'Medication image uploaded successfully',
-            'url' => asset('storage/' . $path),
-            'data' => $medicationImage,
-        ]);
-    }
-    public function storeDiseases(Request $request)
-    {
-        $request->validate([
-            'disease_id' => 'required|array',
-            'disease_id.*' => 'exists:diseases,id',
-        ]);
-
-        $patient = Patient::where('user_id', Auth::id())->firstOrFail();
-
-        $patient->diseases()->sync($request->disease_id); //attach
-
-        return response()->json([
-            'message' => 'Diseases saved successfully',
-        ]);
-    }
-*/
 }

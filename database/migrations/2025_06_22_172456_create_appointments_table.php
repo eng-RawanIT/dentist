@@ -22,9 +22,6 @@ return new class extends Migration
             $table->foreignId('student_id')
                 ->constrained('students')
                 ->onDelete('cascade');
-            $table->foreignId('stage_id')
-                ->constrained('stages')
-                ->onDelete('cascade');
             $table->date('date');
             $table->time('time');
             $table->timestamps();
