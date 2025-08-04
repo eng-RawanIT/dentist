@@ -227,7 +227,7 @@ class StudentController extends Controller
         ]);
     }
 
-    // view the previous information for all the sessions depend to this patient request
+    // view the previous information for all the sessions depends on this patient request
     public function viewPreviousInfo (Request $request)
     {
         $request->validate([
@@ -599,7 +599,7 @@ class StudentController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Profile image updated successfully.',
-            'profile_image_url' => asset('storage/student_profiles/' . $filename), // هذا للعرض فقط
+            'profile_image_url' => asset('storage/student_profiles/' . $filename),
         ]);
     }
 

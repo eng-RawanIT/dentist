@@ -68,6 +68,15 @@ Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:d
     Route::get('/portfolio/download','downloadPdf');
     Route::post('/upload-profile-image','uploadProfileImage');
 });
+////هدول مشان اسمح للمشرف يستخدم نفس التوابع بكنترولر الطالب بدون ما اكررهم بكنترولر المشرف
+Route::controller(StudentController::class)
+    ->middleware(['auth:sanctum', 'role:supervisor'])
+    ->group(function () {
+        Route::post('/educational-contents','listContents');
+        Route::post('/show-educational-contents','showContent');
+        Route::post('/show-educational-contents-bystage','showEducationalContentByStage');
+    });
+
 
 Route::controller(RadiologyController::class)->middleware(['auth:sanctum', 'role:radiologyManager'])->group(function () {
     Route::post('/radiology-uploadImage', 'uploadRadiologyImage');
