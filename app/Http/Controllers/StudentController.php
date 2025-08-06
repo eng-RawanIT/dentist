@@ -20,6 +20,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class StudentController extends Controller
 {
@@ -397,55 +398,72 @@ class StudentController extends Controller
             'stages' => array_values($stagesData),
         ]);
     }
-    ///pdf
     public function downloadPdf()
     {
         $user = Auth::user();
-
-        if (!$user || !$user->student) {
-            return response()->json(['message' => 'Authenticated user is not a student.'], 403);
-        }
-
         $student = $user->student;
 
         $appointments = $student->appointments()
-            ->with(['stage', 'session', 'patient.user'])
+            ->with([
+                'session',
+                'request.stage',
+                'patient.user'
+            ])
+            ->has('session') // فقط المواعيد التي لها جلسة
             ->get();
+
+        if ($appointments->isEmpty()) {
+            return response()->json(['message' => 'No valid appointments found.'], 404);
+        }
 
         $stagesData = $this->prepareStagesData($appointments);
         $overallGrade = $this->calculateStudentGrade($stagesData);
+
         $data = [
             'student_id' => $student->id,
             'name' => $user->name,
             'profile_image_url' => $student->profile_image_url,
             'year' => $student->year,
-            'overall_grade' => $overallGrade,
+            'overall_grade' => $overallGrade ?? 0.0,
             'stages' => array_values($stagesData),
         ];
-        $pdf = Pdf::loadView('pdf.portfolio', $data);
 
-        return $pdf->download('portfolio_' . $user->name . '.pdf');
+        $pdf = Pdf::loadView('pdf.portfolio', $data);
+        $filename = 'portfolio_' . Str::slug($user->name) . '.pdf';
+        $relativePath = 'public/portfolios/' . $filename;
+        $storagePath = storage_path('app/' . $relativePath);
+
+        if (!file_exists(dirname($storagePath))) {
+            mkdir(dirname($storagePath), 0755, true);
+        }
+
+        $pdf->save($storagePath);
+
+        return response()->json([
+            'message' => 'PDF saved successfully.',
+            'url' => asset('portfolios/' . $filename),
+        ]);
     }
+
     private function prepareStagesData($appointments)
     {
         $stages = [];
 
         foreach ($appointments as $appointment) {
-            if (!$appointment->session || !$appointment->stage || !$appointment->patient) {
+            $session = $appointment->session;
+            $stage = $appointment->request->stage ?? null;
+            $patient = $appointment->patient;
+
+            if (!$session || !$stage || !$patient) {
                 continue;
             }
-
-            $stage = $appointment->stage;
-            $session = $appointment->session;
-            $patient = $appointment->patient;
 
             $stageId = $stage->id;
             $patientId = $patient->id;
 
-
             if (!isset($stages[$stageId])) {
                 $stages[$stageId] = [
-                    'stage_id' => $stage->id,
+                    'stage_id' => $stageId,
                     'stage_name' => $stage->name,
                     'total_score' => 0,
                     'session_count' => 0,
@@ -461,8 +479,8 @@ class StudentController extends Controller
 
             if (!isset($stages[$stageId]['patients'][$patientId])) {
                 $stages[$stageId]['patients'][$patientId] = [
-                    'patient_id' => $patient->id,
-                    'name' => $patient->user->name ?? 'username',
+                    'patient_id' => $patientId,
+                    'name' => $patient->user->name ?? 'Unknown',
                     'session_count' => 1,
                 ];
             } else {
@@ -480,6 +498,7 @@ class StudentController extends Controller
 
         return $stages;
     }
+
     //متوسط علامة الطالب تبع الستاجات
     private function calculateStudentGrade(array $stagesData): ?float
     {
@@ -506,14 +525,10 @@ class StudentController extends Controller
         }
 
         $student = $user->student;
-
-        // Get all appointments of this student that have sessions
         $appointmentsWithSessions = $student->appointments()
             ->whereHas('session')
             ->with(['session', 'stage'])
             ->get();
-
-        // Group sessions by stage
         $groupedByStage = $appointmentsWithSessions->groupBy(function ($appointment) {
             return $appointment->stage->id;
         })->map(function ($appointments, $stageId) {
@@ -545,38 +560,29 @@ class StudentController extends Controller
     }
     public function getStudentQrCodeData()
     {
-        $user = Auth::user();
+        $user = auth()->user();
         $student = $user->student;
 
         if (!$student) {
             return response()->json(['message' => 'User is not a student'], 403);
         }
-
-        $lastSession = $student->appointments()
-            ->whereHas('session')
-            ->with('session')
-            ->orderByDesc('date')
-            ->orderByDesc('time')
-            ->first();
-
-        if (!$lastSession || !$lastSession->session) {
+        $latestSession = $student->appointments()
+            ->latest()
+            ->first()
+            ?->session;
+        if (!$latestSession) {
             return response()->json(['message' => 'No session found'], 404);
         }
-
-        $sessionId = $lastSession->session->id;
-        ///////////////////////////////////////////////هاد شي مبدأي لحتى نعمل واجهات المشرف
-        $url = "https://yourdomain.com/sessions/{$sessionId}";
-
         return response()->json([
-            'qr_string' => $url,
-            'session_id' => $sessionId,
+            'student_id' => $student->id,
+            'session_id' => $latestSession->id,
         ]);
     }
 
     public function uploadProfileImage(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpg,jpeg|max:5120', // 5MB
+            'image' => 'required|image|mimes:jpg,jpeg|max:5120',
         ]);
 
         $user = Auth::user();
@@ -586,13 +592,9 @@ class StudentController extends Controller
         }
 
         $student = $user->student;
-
-        // حفظ الصورة
         $file = $request->file('image');
         $filename = 'student_' . $student->id . '.' . $file->getClientOriginalExtension();
         $file->storeAs('student_profiles', $filename, 'public');
-
-        // نخزن فقط الاسم في قاعدة البيانات
         $student->profile_image_url = $filename;
         $student->save();
 
@@ -671,4 +673,42 @@ class StudentController extends Controller
             'stages' => $formattedStages
         ]);
     }
+    ////////////////emergency cases
+public function getArchivedSessionsByStage()
+{
+    $stages = Stage::with([
+        'appointments.session' => fn($q) => $q->where('is_archived', true),
+        'appointments.patient.user',
+    ])->get();
+
+    $result = $stages->map(function ($stage) {
+        $archivedSessions = [];
+
+        foreach ($stage->requests as $request) {
+            foreach ($request->appointments as $appointment) {
+                $session = $appointment->session;
+
+                if ($session && $session->is_archived) {
+                    $archivedSessions[] = [
+                        'session_id' => $session->id,
+                        'description' => $session->description,
+                        'evaluation_score' => $session->evaluation_score,
+                        'supervisor_comments' => $session->supervisor_comments,
+                        'date' => $session->date,
+                        'patient_name' => optional($appointment->patient->user)->name,
+                        'appointment_date' => $appointment->date,
+                    ];
+                }
+            }
+        }
+
+        return [
+            'stage_id' => $stage->id,
+            'stage_name' => $stage->name,
+            'archived_sessions' => $archivedSessions,
+        ];
+    })->filter(fn($stage) => count($stage['archived_sessions']) > 0)->values();
+
+    return response()->json($result);
+}
 }

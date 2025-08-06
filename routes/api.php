@@ -24,13 +24,14 @@ use Illuminate\Support\Facades\Route;
 */
 
 //for both middleware role permission :  ->middleware(['auth:sanctum', 'role:patient,dentalStudent'])
+
+
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
 Route::controller(AuthController::class)->group(function () {
     Route::get('/sms', 'sms');
-    Route::post('/addUser', 'AddUser');
     Route::post('/login', 'login');
     Route::post('/logout', 'logout')->middleware('auth:sanctum');
     Route::post('/sendOtp', 'sendOtp');
@@ -54,7 +55,7 @@ Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:d
     Route::post('/delete-appointment', 'deleteAvailableAppointment');
     Route::post('/change-day-status', 'changeDayStatus');
     Route::get('/appointments', 'viewMyAppointment');
-    Route::get('/weekly-schedule', 'weeklySchedule');
+    Route::get('/student-weekly-schedule', 'weeklySchedule');
     Route::post('/previous-info', 'viewPreviousInfo');
     Route::post('/patient-info', 'viewPatientInfo');
     Route::post('/add-description', 'addDescription');
@@ -67,19 +68,16 @@ Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:d
     Route::post('/show-educational-contents-bystage','showEducationalContentByStage');
     Route::get('/portfolio/download','downloadPdf');
     Route::post('/upload-profile-image','uploadProfileImage');
+    Route::get('/view-emergency-cases','getArchivedSessionsByStage');
 });
-////هدول مشان اسمح للمشرف يستخدم نفس التوابع بكنترولر الطالب بدون ما اكررهم بكنترولر المشرف
-Route::controller(StudentController::class)
-    ->middleware(['auth:sanctum', 'role:supervisor'])
-    ->group(function () {
-        Route::post('/educational-contents','listContents');
-        Route::post('/show-educational-contents','showContent');
-        Route::post('/show-educational-contents-bystage','showEducationalContentByStage');
-    });
-
 
 Route::controller(RadiologyController::class)->middleware(['auth:sanctum', 'role:radiologyManager'])->group(function () {
     Route::post('/radiology-uploadImage', 'uploadRadiologyImage');
+    Route::post('/add-patient', 'addPatient');
+    Route::post('/search-patient', 'searchPatient');
+    Route::get('/all-diseases','allDiseases');
+    Route::get('/radiology-stats','radiologyStats');
+    Route::get('/recent-images','recentImages');
 });
 
 Route::controller(ArchiveController::class)->middleware('auth:sanctum')->group(function () {
@@ -88,7 +86,7 @@ Route::controller(ArchiveController::class)->middleware('auth:sanctum')->group(f
 });
 
 Route::controller(AdmissionController::class)->middleware(['auth:sanctum', 'role:AdmissionManager'])->group(function () {
-    Route::get('/weekly-summary', 'weeklySummary');
+    Route::get('/admission-weekly-summary', 'weeklySummary');
     Route::get('/patient-request', 'patientRequest');
     Route::get('/all-requests','allPatientRequest');
     Route::get('/stage-dates','stageDates');
@@ -98,15 +96,28 @@ Route::controller(AdmissionController::class)->middleware(['auth:sanctum', 'role
 });
 
 Route::controller(AdminController::class)->middleware(['auth:sanctum', 'role:admin'])->group(function () {
+    Route::post('/addUser', 'AddUser');
+    Route::delete('/delete-user/{id}', 'deleteUser');
     Route::post('/add-schedule','addPracticalSchesdule');
     Route::post('/view-year-schedules','viewYearSchedules');
+    Route::get('/view-all-supervisors','viewAllSupervisors');
+    Route::get('/view-all-doctors','viewAllDoctors');
+    Route::post('/add-stage','addStage');
+    Route::get('/view-stages','viewStages');
+    Route::delete('/delete-stage/{id}', 'deleteStage');
+    Route::get('/statistics', 'statistics');
+    Route::get('/today-schedule', 'todaySchedule');
+    Route::delete('/delete-schedule/{id}', 'deleteSchedule');
 });
+
 Route::controller(SupervisorController::class)->middleware(['auth:sanctum', 'role:supervisor'])->group(function () {
-    Route::post('/store-educational-content','storeEducationalContent');
-    Route::get('/my-educational-contents','myEducationalContents');
-    Route::delete('/delete-educational-content/{id}','deleteContent');
-    Route::get('/weekly-schedule','weeklySchedule');
+    Route::post('/store-educational-content', 'storeEducationalContent');
+    Route::get('/my-educational-contents', 'myEducationalContents');
+    Route::delete('/delete-educational-content/{id}', 'deleteContent');
+    Route::get('/supervisor-weekly-schedule', 'weeklySchedule');
 });
+
+
 
 Route::controller(ResourceController::class)->middleware(['auth:sanctum', 'role:dentalStudent'])->group(function () {
     Route::post('/add-resource','addResource');
@@ -117,3 +128,20 @@ Route::controller(ResourceController::class)->middleware(['auth:sanctum', 'role:
     Route::post('/bookResource','bookResource');
     Route::post('/releaseResource','releaseResource');
 });
+
+//for multy auth
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/view-all-patients', [AdminController::class, 'viewAllPatients'])->middleware('role:admin,AdmissionManager');
+    Route::post('/patient-info', [AdminController::class, 'patientInfo'])->middleware('role:admin,AdmissionManager,RadiologyManager');
+    Route::get('/view-all-students', [AdminController::class, 'viewAllStudents'])->middleware('role:admin,AdmissionManager');
+    Route::post('/supervisor-scan-Qrcode', [SupervisorController::class, 'handleScannedQRCode'])->middleware('role:supervisor,doctor');
+    Route::post('/evaluate-session', [SupervisorController::class, 'evaluateSession'])->middleware('role:supervisor,doctor');
+
+});
+////DOCROT
+Route::controller(SupervisorController::class)->middleware(['auth:sanctum', 'role:doctor'])->group(function () {
+    Route::get('/doctorViewCase/{session_id}', 'doctorViewCase');
+});
+
+
+

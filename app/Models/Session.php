@@ -16,10 +16,18 @@ class Session extends Model
         'evaluation_score',
         'description',
         'supervisor_id',
+        'is_archived'
     ];
 
     public function images()
     {
         return $this->hasMany(SessionImage::class);
     }
+
+    public function appointment()
+    {
+        return $this->belongsTo(Appointment::class);
+    }
+
+
 }

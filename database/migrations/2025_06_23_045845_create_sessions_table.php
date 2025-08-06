@@ -25,6 +25,7 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('users')
                 ->onDelete('cascade');
+            $table->boolean('is_archived')->default(false);
             $table->timestamps();
         });
     }

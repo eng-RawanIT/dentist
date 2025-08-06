@@ -27,4 +27,10 @@ class PatientRequest extends Model
     {
         return $this->hasOne(Patient::class);
     }
+
+    public function stage()
+    {
+        return $this->belongsTo(Stage::class);
+    }
+
 }

@@ -15,7 +15,7 @@ class ResourceController extends Controller
     public function addResource(Request $request){
         $request->validate([
             'resource_name'=>'required|string|max:255',
-            'category'=>'required|in:Books_and_References,Paper_lectures, Medical_instruments ,General',
+            'category'=>'required|in:Books_and_References,Paper_lectures,Medical_instruments,General',
             'loan_start_date'=>'nullable|date|before_or_equal:loan_end_date',
             'loan_end_date'=>'nullable|date|after_or_equal:loan_start_date',
             'image_path'=>'nullable|image|max:5120',
