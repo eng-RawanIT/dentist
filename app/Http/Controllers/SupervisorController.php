@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\EducationalContent;
 use App\Models\EducationalImage;
 use App\Models\PracticalSchedule;
+use App\Models\ReInternship;
 use App\Models\Session;
 use App\Models\Stage;
 use App\Models\Student;
@@ -14,6 +15,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 
@@ -381,5 +383,57 @@ class SupervisorController extends Controller
         ]);
     }
 
+    public function studentsMarks(Request $request)
+    {
+        $user = Auth::user();
+
+        $schedule = PracticalSchedule::with(['students.user', 'stage', 'supervisor'])
+            ->where('supervisor_id', $user->id)
+            ->where('year', 'LIKE', '%' . $request->year . '%')
+            ->firstOrFail();
+
+        $reInternshipStudentIds = ReInternship::pluck('student_id')->toArray();
+
+        $studentsData = $schedule->students->map(function ($student) use ($reInternshipStudentIds, $schedule) {
+            $totalScore = Appointment::where('student_id', $student->id)
+                ->whereHas('session')
+                ->with('session')
+                ->get()
+                ->sum(fn($appointment) => $appointment->session->evaluation_score ?? 0);
+            $absenceCount = DB::table('student_absences')
+                ->where('practical_schedule_id', $schedule->id)
+                ->where('student_id', $student->id)
+                ->count();
+
+            return [
+                'name' => $student->user->name[app()->getLocale()] ?? 'N/A',
+                'academic_year' => $student->year ?? 'N/A',
+                'group_number' => $student->pivot->group_number ?? null,
+                'score' => $totalScore,
+                'absence_count' => $absenceCount,
+                'is_reinternship' => in_array($student->id, $reInternshipStudentIds),
+            ];
+        });
+
+        $normalStudents = $studentsData->where('is_reinternship', false)->sortBy('group_number');
+        $reinternshipStudents = $studentsData->where('is_reinternship', true);
+        $finalList = $normalStudents->merge($reinternshipStudents);
+
+        $pdf = Pdf::loadView('pdf.yearly_students_report', [
+            'supervisor_name' => $schedule->supervisor->name[app()->getLocale()] ?? 'N/A',
+            'stage_name' => $schedule->stage->name ?? 'N/A',
+            'schedule_name' => $schedule->days . ' - ' . $schedule->location,
+            'students' => $finalList,
+            'year' => $request->year,
+        ]);
+
+        $filename = "reports/yearly_students_report_{$schedule->id}_" . date('Ymd') . ".pdf";
+        Storage::disk('public')->put($filename, $pdf->output());
+
+        return response()->json([
+            'message' => 'PDF report generated successfully.',
+            'download_url' => asset("storage/{$filename}")
+        ]);
+    }
 
 }

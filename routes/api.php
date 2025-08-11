@@ -124,6 +124,7 @@ Route::controller(SupervisorController::class)->middleware(['auth:sanctum', 'rol
     Route::post('/practical-schedule-students','getStudentsForPracticalSchedule');
     Route::post('/record-Absences','recordAbsences');
     Route::post('/attendance-Report','downloadAttendanceReport');
+    Route::get('/students-Marks' , 'studentsMarks');
 });
 
 Route::controller(ResourceController::class)->middleware(['auth:sanctum', 'role:dentalStudent'])->group(function () {
