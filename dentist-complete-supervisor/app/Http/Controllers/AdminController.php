@@ -23,6 +23,21 @@ use function Illuminate\Events\queueable;
 class AdminController extends Controller
 {
 
+    // for translate name
+    /*$tr = new GoogleTranslate();
+    $tr->setTarget('en');
+    $translated = $tr->translate($request->name);
+    return $translated;
+    $sourceLang = $tr->getLastDetectedSource();
+    $sourceLang = detectLang($request->name);
+    return $sourceLang;
+    if ($sourceLang !== 'en')
+        $sourceLang = 'ar';
+
+    $targetLang = $sourceLang === 'ar' ? 'en' : 'ar';
+    $tr->setSource($sourceLang)->setTarget($targetLang);
+    $finalTranslation = $tr->translate($request->name);*/
+
     public function AddUser(StoreUserRequest $request)
     {
         $validated = $request->validated();
@@ -38,7 +53,7 @@ class AdminController extends Controller
             return response()->json(['otp' => $otp]);
         } else {
             // Create base user
-            $user = User::create([
+           $user = User::create([
                 'name' => $validated['name'], // raw value, will be translated if student
                 'phone_number' => $validated['phone_number'],
                 'national_number' => $validated['national_number'],
@@ -54,13 +69,9 @@ class AdminController extends Controller
                 ]);
 
                 // for translate name
+                $sourceLang = 'en';
+                $targetLang = 'ar';
                 $tr = new GoogleTranslate();
-                $tr->setTarget('en');
-                $translated = $tr->translate($request->name);
-                $sourceLang = $tr->getLastDetectedSource();
-                if ($sourceLang === 'ur')
-                    $sourceLang = 'ar';
-                $targetLang = $sourceLang === 'ar' ? 'en' : 'ar';
                 $tr->setSource($sourceLang)->setTarget($targetLang);
                 $finalTranslation = $tr->translate($request->name);
 
@@ -191,19 +202,15 @@ class AdminController extends Controller
         $stage = Stage::where('name->en',$validated)->first();
 
         // for translate name
+        $sourceLang = 'en';
+        $targetLang = 'ar';
         $tr = new GoogleTranslate();
-        $tr->setTarget('en');
-        $translated = $tr->translate($request->name);
-        $sourceLang = $tr->getLastDetectedSource();
-        if ($sourceLang === 'ur')
-            $sourceLang = 'ar';
-        $targetLang = $sourceLang === 'ar' ? 'en' : 'ar';
         $tr->setSource($sourceLang)->setTarget($targetLang);
         $finalTranslation = $tr->translate($request->name);
 
         $validated['name']=[
-                $sourceLang => $request->name,
-                $targetLang => $finalTranslation
+            $sourceLang => $request->name,
+            $targetLang => $finalTranslation
         ];
 
         if($stage){

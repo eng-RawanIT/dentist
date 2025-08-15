@@ -7,6 +7,7 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Models\Student;
 use App\Models\User;
+use App\Services\EditProfileService;
 use App\Services\OtpService;
 use App\Services\SMSService;
 use Illuminate\Http\Request;
@@ -15,7 +16,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
+use Stichoza\GoogleTranslate\GoogleTranslate;
 
 class AuthController extends Controller
 {
@@ -167,5 +170,66 @@ class AuthController extends Controller
             ]);
             return response()->json(['message' => 'Password reset successfully'], 201);
         }
+    }
+
+
+    /////////////////////////////////////////////////////////////// for profile update
+    protected $editProfileService;
+
+    public function __construct(EditProfileService $editProfileService)
+    {
+        $this->editProfileService = $editProfileService;
+    }
+    // for phone number
+    public function sendEditOtp()
+    {
+        $user = Auth::user();
+        $otp = $this->editProfileService->sendOtp($user);
+
+        return response()->json(['message' => 'OTP sent successfully', 'otp' => $otp], 201);
+    }
+
+    public function verifyEditOtp(Request $request)
+    {
+        $request->validate(['otp' => 'required|numeric|digits:4']);
+        $user = Auth::user();
+
+        if (!$this->editProfileService->verifyOtp($user, $request->otp)) {
+            return response()->json(['message' => 'Invalid or expired OTP'], 401);
+        }
+
+        return response()->json(['message' => 'OTP verified'], 201);
+    }
+
+    public function editUserProfile(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'name' => 'nullable|string|max:255',
+            'phone_number' => 'nullable|numeric|exists:users,phone_number',
+            'phone_number_for_password' => 'nullable|numeric|exists:users,phone_number',
+            'password' => 'nullable|string|min:8|confirmed',
+            'language' => 'nullable|string|in:en,ar' // for student
+        ]);
+
+        $lang = $validated['language'] ?? 'en';
+        unset($validated['language']);
+
+        try{
+        $updatedUser = $this->editProfileService->updateProfile($user, $validated, $lang);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User profile updated successfully',
+            'user' => $updatedUser
+        ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+            ], 400);
+            }
     }
 }

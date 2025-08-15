@@ -13,14 +13,14 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         User::create([
-            'name' => json_encode(['en' => 'rawan', 'ar' => 'روان']),
+            'name' =>['en' => 'rawan', 'ar' => 'روان'],
             'phone_number'=>'101010101',
             'national_number'=>'10101010101',
             'password'=>Hash::make('10101010'),
             'role_id'=>'1']); // student
 
         User::create([
-            'name' => json_encode(['en' => 'rana', 'ar' => 'رنا']),
+            'name' => ['en' => 'rana', 'ar' => 'رنا'],
             'phone_number'=>'222222222',
             'national_number'=>'22222222222',
             'password'=>Hash::make('22222222'),

@@ -33,13 +33,17 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::controller(AuthController::class)->group(function () {
     Route::get('/sms', 'sms');
     Route::post('/login', 'login');
-    Route::post('/logout', 'logout')->middleware('auth:sanctum');
     Route::post('/sendOtp', 'sendOtp');
     Route::post('/verifyOtp', 'verifyOtp');
     Route::post('/patientVerifyOtp', 'patientVerifyOtp');
     Route::post('/resetPassword', 'resetPassword');
     Route::post('/resend-otp', 'resendOtp');
-    Route::post('/editProfile', 'updateProfile')->middleware('auth:sanctum');
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::post('/logout', 'logout');
+        Route::get('/send-edit-otp', 'sendEditOtp');
+        Route::post('/verify-edit-Otp', 'verifyEditOtp');
+        Route::post('/edit-user-profile', 'editUserProfile');
+    });
 });
 
 Route::controller(PatientController::class)->middleware(['auth:sanctum', 'role:patient'])->group(function () {
@@ -48,6 +52,9 @@ Route::controller(PatientController::class)->middleware(['auth:sanctum', 'role:p
     Route::get('/requestStatus','requestStatus');
     Route::post('/available-appointment', 'viewAvailableAppointments');
     Route::post('/book-appointment', 'bookAvailableAppointment');
+    Route::post('/edit-information', 'updatePatientProfile');
+    Route::get('/view-information','viewInformation');
+    Route::delete('/delete-medication-image/{id}', 'deleteMedicationImage');
 });
 
 Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:dentalStudent'])->group(function () {

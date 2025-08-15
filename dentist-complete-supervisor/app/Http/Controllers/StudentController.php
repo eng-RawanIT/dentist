@@ -16,6 +16,7 @@ use App\Models\Session;
 use App\Models\SessionImage;
 use App\Models\Stage;
 use App\Models\Student;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -313,16 +314,17 @@ class StudentController extends Controller
 
         $session = Session::where('appointment_id',$request->appointment_id)->first();
 
-        // for translate name
+        // for translate description
+        $sourceLang = 'en';
+        $targetLang = 'ar';
         $tr = new GoogleTranslate();
-        $tr->setTarget('en');
-        $translated = $tr->translate($request->description);
-        $sourceLang = $tr->getLastDetectedSource();
-        if ($sourceLang === 'ur')
-            $sourceLang = 'ar';
-        $targetLang = $sourceLang === 'ar' ? 'en' : 'ar';
         $tr->setSource($sourceLang)->setTarget($targetLang);
         $finalTranslation = $tr->translate($request->description);
+
+        $validated['description'] =  [
+            $sourceLang => $request->description,
+            $targetLang => $finalTranslation
+        ];
 
         if($session && $session->supervisor_id != null)
             return response()->json([
@@ -332,10 +334,7 @@ class StudentController extends Controller
 
         elseif($session) {
             $session->update([
-                'description' => [
-                $sourceLang => $request->description,
-                $targetLang => $finalTranslation
-            ]
+                'description' => $validated['description']
             ]);
             return response()->json([
                 'status' => 'success',
@@ -711,6 +710,8 @@ class StudentController extends Controller
                 'day' => $item->days,
                 'stage_id' => $item->stage_id,
                 'stage_name' => Stage::find($item->stage_id)->name['en'] ?? null,
+                'supervisor_id' => $item->supervisor_id,
+                'supervisor_name' => User::find($item->supervisor_id)->name,
                 'time_from' => $item->start_time,
                 'time_to' => $item->end_time,
                 'type' => 'regular',
@@ -728,8 +729,10 @@ class StudentController extends Controller
                 $entries[] = [
                     'id' => $Item->id,
                     'day' => $Item->days,
-                    'stage_id' => $reItem->stage_id,
+                    'stage_id' => $Item->stage_id,
                     'stage_name' => Stage::find($Item->stage_id)->name['en'] ?? null,
+                    'supervisor_id' => $Item->supervisor_id,
+                    'supervisor_name' => User::find($Item->supervisor_id)->name,
                     'time_from' => $Item->start_time,
                     'time_to' => $Item->end_time,
                     'type' => 're_internship',
@@ -742,12 +745,12 @@ class StudentController extends Controller
 
         $grouped = collect($uniqueEntries)
             ->sortBy('start_time')
-            ->groupBy('days')
+            ->groupBy('day')
             ->toArray();
 
         return response()->json([
             'status' => 'success',
-            'schedule' => $grouped
+            'schedules' =>$grouped
         ]);
     }
 
@@ -771,7 +774,7 @@ class StudentController extends Controller
 
             return [
                 'stage_id' => $stage->id,
-                'stage_name' => $stage->name['en'] ,
+                'stage_name' => $stage->name['en'],
                 'archived_sessions' => $sessions->map(function ($session) {
                     $appointment = $session->appointment;
                     $request = $appointment->request;

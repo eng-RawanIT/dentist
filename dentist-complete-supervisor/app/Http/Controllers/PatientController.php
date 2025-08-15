@@ -349,4 +349,93 @@ class PatientController extends Controller
         ]);
     }
 
+    public function updatePatientProfile(Request $request)
+    {
+        $patient = Patient::where('user_id', Auth::id())->firstOrFail();
+
+        $validated = $request->validate([
+            'height' => 'nullable|numeric|min:0',
+            'weight' => 'nullable|numeric|min:0',
+            'birthdate' => 'nullable|date|before:today|date_format:d-m-Y',
+            'diseases' => 'nullable|array',
+            'diseases.*' => 'exists:diseases,id',
+            'medication_images' => 'nullable|array',
+            'medication_images.*' => 'image|max:2048'
+        ]);
+
+        if (isset($validated['height']))
+            $patient->height = $validated['height'];
+
+        if (isset($validated['weight']))
+            $patient->weight = $validated['weight'];
+
+        if (isset($validated['birthdate'])) {
+            $validated['birthdate'] = Carbon::createFromFormat('d-m-Y', $validated['birthdate'])->format('Y-m-d');
+            $patient->birthdate = $validated['birthdate'];
+        }
+
+        if (isset($validated['diseases'])) {
+            $patient->diseases()->sync($validated['diseases']);
+        }
+
+        if (isset($validated['medication_images'])) {
+            foreach ($validated['medication_images'] as $image) {
+                $extension = $image->getClientOriginalExtension();
+                $filename = 'patient-' . $patient->id . '-' . uniqid() . '.' . $extension;
+                $path = $image->storeAs('medications', $filename, 'public');
+
+                $patient->medications()->create(['image_url' => $path]);
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Patient profile updated successfully',
+            'patient' => $patient->load('diseases', 'medications')
+        ]);
+    }
+
+    public function viewInformation()
+    {
+        $patient = Patient::where('user_id', Auth::id())->firstOrFail();
+
+        return response()->json([
+            'status' => 'success',
+            'user_id' => $patient->user->id,
+            'patient_id' => $patient->id,
+            'birthdate' => $patient->birthdate,
+            'age' => \Illuminate\Support\Carbon::parse($patient->birthdate)->age ,
+            'weight' => $patient->weight,
+            'height' => $patient->height,
+            'diseases' => $patient->diseases,
+            'madicines' => $patient->medications,
+        ]);
+    }
+
+    public function deleteMedicationImage($id)
+    {
+        validator(['id' => $id], [
+            'id' => 'required|integer|exists:patient_medication,id'
+        ])->validate();
+
+        $patient = Patient::where('user_id', Auth::id())->firstOrFail();
+
+        $medication = MedicationImage::find($id);
+
+        if ($medication->patient_id !== $patient->id) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Unauthorized to delete this medication image.'
+            ], 403);
+        }
+
+        $medication->delete();
+
+        return response()->json([
+            'status'      => 'deleted success',
+            'medications' => $patient->medications
+        ]);
+    }
+
+
 }
