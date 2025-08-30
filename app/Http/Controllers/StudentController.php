@@ -399,7 +399,7 @@ class StudentController extends Controller
         $student = $user->student;
 
         $appointments = $student->appointments()
-            ->with(['stage', 'session', 'patient.user'])
+            ->with(['stage', 'session', 'request.patient.user'])
             ->get();
 
         $stagesData = $this->prepareStagesData($appointments);

@@ -37,7 +37,7 @@ class SupervisorController extends Controller
             'file' => 'nullable|file|max:10240',
             'images.*' => 'nullable|image|max:5120',
             'stage_id' => 'required|integer|exists:stages,id',
-            'appropriate_rating' => 'required|integer|min:1|max:5',
+            'appropriate_rating' => 'required|numeric|min:1|max:5',
         ]);
 
         $user = Auth::user();

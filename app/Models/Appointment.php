@@ -36,4 +36,6 @@ class Appointment extends Model
         return $this->belongsTo(PatientRequest::class );
     }
 
+
+
 }

@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('file_path')->nullable(); // For uploaded files
             $table->timestamp('published_at')->nullable();
             $table->foreignId('stage_id')->constrained('stages')->onDelete('cascade');
-            $table->integer('appropriate_rating');
+            $table->double('appropriate_rating');
             $table->timestamps();
         });
     }

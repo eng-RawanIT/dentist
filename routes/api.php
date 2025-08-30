@@ -72,8 +72,7 @@ Route::controller(StudentController::class)->middleware(['auth:sanctum', 'role:d
     Route::get('/stages-sessions','getStudentStagesWithSessions');
     Route::get('/QR_code','getStudentQrCodeData');
     Route::post('/educational-contents','listContents');
-    Route::post('/show-educational-contents','showContent');
-    Route::post('/show-educational-contents-bystage','showEducationalContentByStage');
+
     Route::get('/portfolio/download','downloadPdf');
     Route::post('/upload-profile-image','uploadProfileImage');
     Route::get('/practical-schedule','practicalSchedule');
@@ -152,6 +151,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/view-all-students', [AdminController::class,'viewAllStudents'])->middleware('role:admin,AdmissionManager');
     Route::post('/supervisor-scan-Qrcode', [SupervisorController::class, 'handleScannedQRCode'])->middleware('role:supervisor,doctor');
     Route::post('/evaluate-session', [SupervisorController::class, 'evaluateSession'])->middleware('role:supervisor,doctor');
+    Route::post('/show-educational-contents' ,[StudentController::class, 'showContent'])->middleware('role:dentalStudent,doctor');
+    Route::post('/show-educational-contents-bystage' ,[StudentController::class, 'showEducationalContentByStage'])->middleware('role:dentalStudent,doctor');
 });
 
 ////DOCROT
